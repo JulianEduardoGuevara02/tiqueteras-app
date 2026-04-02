@@ -1,0 +1,550 @@
+2026-04-02T20:27:27.499354273Z     return _ConnectionFairy._checkout(self)
+2026-04-02T20:27:27.499358223Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.499362223Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
+2026-04-02T20:27:27.499366203Z     fairy = _ConnectionRecord.checkout(pool)
+2026-04-02T20:27:27.499370603Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+2026-04-02T20:27:27.499375364Z     rec = pool._do_get()
+2026-04-02T20:27:27.499379404Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+2026-04-02T20:27:27.499383484Z     with util.safe_reraise():
+2026-04-02T20:27:27.499387574Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.499391704Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:27:27.499395684Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:27:27.499399684Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+2026-04-02T20:27:27.499403595Z     return self._create_connection()
+2026-04-02T20:27:27.499407595Z            ~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.499411575Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+2026-04-02T20:27:27.499415575Z     return _ConnectionRecord(self)
+2026-04-02T20:27:27.499419505Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+2026-04-02T20:27:27.499423595Z     self.__connect()
+2026-04-02T20:27:27.499427575Z     ~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.499431665Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+2026-04-02T20:27:27.499435656Z     with util.safe_reraise():
+2026-04-02T20:27:27.499439666Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.499444666Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:27:27.499449076Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:27:27.499457986Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+2026-04-02T20:27:27.499462926Z     self.dbapi_connection = connection = pool._invoke_creator(self)
+2026-04-02T20:27:27.499466946Z                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.499471117Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 667, in connect
+2026-04-02T20:27:27.499475147Z     return dialect.connect(*cargs_tup, **cparams)
+2026-04-02T20:27:27.499486687Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.499491887Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 630, in connect
+2026-04-02T20:27:27.499495738Z     return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+2026-04-02T20:27:27.499498527Z            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.499501158Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/psycopg2/__init__.py", line 122, in connect
+2026-04-02T20:27:27.499503858Z     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+2026-04-02T20:27:27.500764286Z psycopg2.OperationalError: connection to server at "db.gsjlkppgsyjoddihuuup.supabase.co" (2600:1f13:838:6e59:2ff4:1b51:faa7:da9d), port 5432 failed: Network is unreachable
+2026-04-02T20:27:27.500776667Z 	Is the server running on that host and accepting TCP/IP connections?
+2026-04-02T20:27:27.500779437Z 
+2026-04-02T20:27:27.500781757Z 
+2026-04-02T20:27:27.500784177Z The above exception was the direct cause of the following exception:
+2026-04-02T20:27:27.500786377Z 
+2026-04-02T20:27:27.500789197Z Traceback (most recent call last):
+2026-04-02T20:27:27.504667287Z   File "/opt/render/project/src/.venv/bin/uvicorn", line 7, in <module>
+2026-04-02T20:27:27.504678078Z     sys.exit(main())
+2026-04-02T20:27:27.504681218Z              ~~~~^^
+2026-04-02T20:27:27.504684478Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1485, in __call__
+2026-04-02T20:27:27.504687628Z     return self.main(*args, **kwargs)
+2026-04-02T20:27:27.504785661Z            ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.504800011Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1406, in main
+2026-04-02T20:27:27.504803831Z     rv = self.invoke(ctx)
+2026-04-02T20:27:27.504807071Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1269, in invoke
+2026-04-02T20:27:27.504813091Z     return ctx.invoke(self.callback, **ctx.params)
+2026-04-02T20:27:27.504816142Z            ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.504819252Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 824, in invoke
+2026-04-02T20:27:27.504822382Z     return callback(*args, **kwargs)
+2026-04-02T20:27:27.504825632Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/main.py", line 433, in main
+2026-04-02T20:27:27.504828402Z     run(
+2026-04-02T20:27:27.504831062Z     ~~~^
+2026-04-02T20:27:27.504834082Z         app,
+2026-04-02T20:27:27.504837102Z         ^^^^
+2026-04-02T20:27:27.504840303Z     ...<47 lines>...
+2026-04-02T20:27:27.504843323Z         h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+2026-04-02T20:27:27.504846433Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.504849473Z     )
+2026-04-02T20:27:27.504852343Z     ^
+2026-04-02T20:27:27.504855543Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/main.py", line 606, in run
+2026-04-02T20:27:27.504858343Z     server.run()
+2026-04-02T20:27:27.504861593Z     ~~~~~~~~~~^^
+2026-04-02T20:27:27.504864803Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 75, in run
+2026-04-02T20:27:27.504868113Z     return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+2026-04-02T20:27:27.504871183Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/runners.py", line 204, in run
+2026-04-02T20:27:27.504879734Z     return runner.run(main)
+2026-04-02T20:27:27.504882674Z            ~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.504895034Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/runners.py", line 127, in run
+2026-04-02T20:27:27.504898054Z     return self._loop.run_until_complete(task)
+2026-04-02T20:27:27.504901144Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.504904694Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+2026-04-02T20:27:27.504908014Z     return future.result()
+2026-04-02T20:27:27.504910674Z            ~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.504912765Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 79, in serve
+2026-04-02T20:27:27.504915095Z     await self._serve(sockets)
+2026-04-02T20:27:27.504918105Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 86, in _serve
+2026-04-02T20:27:27.504921345Z     config.load()
+2026-04-02T20:27:27.504924295Z     ~~~~~~~~~~~^^
+2026-04-02T20:27:27.504927565Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/config.py", line 441, in load
+2026-04-02T20:27:27.504930715Z     self.loaded_app = import_from_string(self.app)
+2026-04-02T20:27:27.504933585Z                       ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+2026-04-02T20:27:27.504936485Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-04-02T20:27:27.504939886Z     module = importlib.import_module(module_str)
+2026-04-02T20:27:27.504943526Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/importlib/__init__.py", line 88, in import_module
+2026-04-02T20:27:27.504947386Z     return _bootstrap._gcd_import(name[level:], package, level)
+2026-04-02T20:27:27.504950776Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.504965696Z   File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+2026-04-02T20:27:27.504969516Z   File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+2026-04-02T20:27:27.504972807Z   File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+2026-04-02T20:27:27.504975296Z   File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+2026-04-02T20:27:27.504977217Z   File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+2026-04-02T20:27:27.504979197Z   File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+2026-04-02T20:27:27.504981147Z   File "/opt/render/project/src/backend/main.py", line 10, in <module>
+2026-04-02T20:27:27.504983107Z     from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal
+2026-04-02T20:27:27.504985137Z   File "/opt/render/project/src/backend/models.py", line 46, in <module>
+2026-04-02T20:27:27.504987087Z     Base.metadata.create_all(bind=engine)
+2026-04-02T20:27:27.504989037Z     ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-04-02T20:27:27.504997387Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py", line 5928, in create_all
+2026-04-02T20:27:27.505000047Z     bind._run_ddl_visitor(
+2026-04-02T20:27:27.505002017Z     ~~~~~~~~~~~~~~~~~~~~~^
+2026-04-02T20:27:27.505003988Z         ddl.SchemaGenerator, self, checkfirst=checkfirst, tables=tables
+2026-04-02T20:27:27.505005908Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.505007937Z     )
+2026-04-02T20:27:27.505009868Z     ^
+2026-04-02T20:27:27.505011868Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3267, in _run_ddl_visitor
+2026-04-02T20:27:27.505017778Z     with self.begin() as conn:
+2026-04-02T20:27:27.505019838Z          ~~~~~~~~~~^^
+2026-04-02T20:27:27.505021838Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/contextlib.py", line 141, in __enter__
+2026-04-02T20:27:27.505023798Z     return next(self.gen)
+2026-04-02T20:27:27.505025818Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3257, in begin
+2026-04-02T20:27:27.505027818Z     with self.connect() as conn:
+2026-04-02T20:27:27.505030838Z          ~~~~~~~~~~~~^^
+2026-04-02T20:27:27.505033988Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3293, in connect
+2026-04-02T20:27:27.505037358Z     return self._connection_cls(self)
+2026-04-02T20:27:27.505040638Z            ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.505044099Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+2026-04-02T20:27:27.505047369Z     Connection._handle_dbapi_exception_noconnection(
+2026-04-02T20:27:27.505050429Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-04-02T20:27:27.505053669Z         err, dialect, engine
+2026-04-02T20:27:27.505056589Z         ^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.505059559Z     )
+2026-04-02T20:27:27.505062159Z     ^
+2026-04-02T20:27:27.505065769Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 2448, in _handle_dbapi_exception_noconnection
+2026-04-02T20:27:27.505068159Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-02T20:27:27.50507025Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+2026-04-02T20:27:27.50507227Z     self._dbapi_connection = engine.raw_connection()
+2026-04-02T20:27:27.50507431Z                              ~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.50507632Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
+2026-04-02T20:27:27.50507829Z     return self.pool.connect()
+2026-04-02T20:27:27.50508025Z            ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.50508222Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+2026-04-02T20:27:27.50508425Z     return _ConnectionFairy._checkout(self)
+2026-04-02T20:27:27.5050863Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.50508825Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
+2026-04-02T20:27:27.50509022Z     fairy = _ConnectionRecord.checkout(pool)
+2026-04-02T20:27:27.50509216Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+2026-04-02T20:27:27.5050941Z     rec = pool._do_get()
+2026-04-02T20:27:27.50509604Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+2026-04-02T20:27:27.50509794Z     with util.safe_reraise():
+2026-04-02T20:27:27.5050999Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.505101891Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:27:27.50510382Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:27:27.505105771Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+2026-04-02T20:27:27.505107711Z     return self._create_connection()
+2026-04-02T20:27:27.505109661Z            ~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.505114801Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+2026-04-02T20:27:27.505116771Z     return _ConnectionRecord(self)
+2026-04-02T20:27:27.505118691Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+2026-04-02T20:27:27.505121501Z     self.__connect()
+2026-04-02T20:27:27.505124891Z     ~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.505128211Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+2026-04-02T20:27:27.505131271Z     with util.safe_reraise():
+2026-04-02T20:27:27.505134552Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:27:27.505137661Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:27:27.505140562Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:27:27.505143632Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+2026-04-02T20:27:27.505146562Z     self.dbapi_connection = connection = pool._invoke_creator(self)
+2026-04-02T20:27:27.505149922Z                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:27:27.505152812Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 667, in connect
+2026-04-02T20:27:27.505154772Z     return dialect.connect(*cargs_tup, **cparams)
+2026-04-02T20:27:27.505156862Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.505166962Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 630, in connect
+2026-04-02T20:27:27.505169322Z     return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+2026-04-02T20:27:27.505171373Z            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:27:27.505173333Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/psycopg2/__init__.py", line 122, in connect
+2026-04-02T20:27:27.505175423Z     conn = _connect(dsn, connection_factory=connection_factory, **kwasync)
+2026-04-02T20:27:27.505182473Z sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) connection to server at "db.gsjlkppgsyjoddihuuup.supabase.co" (2600:1f13:838:6e59:2ff4:1b51:faa7:da9d), port 5432 failed: Network is unreachable
+2026-04-02T20:27:27.505184663Z 	Is the server running on that host and accepting TCP/IP connections?
+2026-04-02T20:27:27.505186593Z 
+2026-04-02T20:27:27.505188613Z (Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-04-02T20:41:20.642175638Z ==> Port scan timeout reached, no open ports detected. Bind your service to at least one port. If you don't need to receive traffic on any port, create a background worker instead.
+2026-04-02T20:41:20.713872207Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2026-04-02T20:50:10.654949775Z ==> Deploying...
+2026-04-02T20:50:10.727737091Z ==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+2026-04-02T20:51:08.296930649Z ==> Running 'uvicorn main:app --host 0.0.0.0 --port $PORT'
+2026-04-02T20:51:22.709565099Z Traceback (most recent call last):
+2026-04-02T20:51:22.710984277Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+2026-04-02T20:51:22.711005138Z     self._dbapi_connection = engine.raw_connection()
+2026-04-02T20:51:22.711012039Z                              ~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.711018249Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
+2026-04-02T20:51:22.711022679Z     return self.pool.connect()
+2026-04-02T20:51:22.71102645Z            ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.71103033Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+2026-04-02T20:51:22.71103624Z     return _ConnectionFairy._checkout(self)
+2026-04-02T20:51:22.711042571Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.711048721Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
+2026-04-02T20:51:22.711054671Z     fairy = _ConnectionRecord.checkout(pool)
+2026-04-02T20:51:22.711060192Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+2026-04-02T20:51:22.711064662Z     rec = pool._do_get()
+2026-04-02T20:51:22.711068442Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+2026-04-02T20:51:22.711072492Z     with util.safe_reraise():
+2026-04-02T20:51:22.711076363Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.711080243Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:22.711084073Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:22.711088053Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+2026-04-02T20:51:22.711091914Z     return self._create_connection()
+2026-04-02T20:51:22.711114735Z            ~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.711123956Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+2026-04-02T20:51:22.711130246Z     return _ConnectionRecord(self)
+2026-04-02T20:51:22.711134466Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+2026-04-02T20:51:22.711138646Z     self.__connect()
+2026-04-02T20:51:22.711142527Z     ~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.711146347Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+2026-04-02T20:51:22.711150247Z     with util.safe_reraise():
+2026-04-02T20:51:22.711154087Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.711172468Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:22.711178869Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:22.711184939Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+2026-04-02T20:51:22.71119109Z     self.dbapi_connection = connection = pool._invoke_creator(self)
+2026-04-02T20:51:22.71119729Z                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.711203221Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 667, in connect
+2026-04-02T20:51:22.711209381Z     return dialect.connect(*cargs_tup, **cparams)
+2026-04-02T20:51:22.711229182Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.711232032Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 630, in connect
+2026-04-02T20:51:22.711235323Z     return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+2026-04-02T20:51:22.711237832Z            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.711240283Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/psycopg/connection.py", line 122, in connect
+2026-04-02T20:51:22.711242763Z     raise last_ex.with_traceback(None)
+2026-04-02T20:51:22.711257324Z psycopg.OperationalError: connection is bad: connection to server at "2600:1f13:838:6e59:2ff4:1b51:faa7:da9d", port 5432 failed: Network is unreachable
+2026-04-02T20:51:22.711261584Z 	Is the server running on that host and accepting TCP/IP connections?
+2026-04-02T20:51:22.711265324Z 
+2026-04-02T20:51:22.711269234Z The above exception was the direct cause of the following exception:
+2026-04-02T20:51:22.711273115Z 
+2026-04-02T20:51:22.711275625Z Traceback (most recent call last):
+2026-04-02T20:51:22.792587805Z   File "/opt/render/project/src/.venv/bin/uvicorn", line 7, in <module>
+2026-04-02T20:51:22.792605236Z     sys.exit(main())
+2026-04-02T20:51:22.792608856Z              ~~~~^^
+2026-04-02T20:51:22.792612886Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1485, in __call__
+2026-04-02T20:51:22.792616607Z     return self.main(*args, **kwargs)
+2026-04-02T20:51:22.792619797Z            ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.792623027Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1406, in main
+2026-04-02T20:51:22.792627478Z     rv = self.invoke(ctx)
+2026-04-02T20:51:22.792630758Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1269, in invoke
+2026-04-02T20:51:22.792634658Z     return ctx.invoke(self.callback, **ctx.params)
+2026-04-02T20:51:22.792637918Z            ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.792641028Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 824, in invoke
+2026-04-02T20:51:22.792644199Z     return callback(*args, **kwargs)
+2026-04-02T20:51:22.792647359Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/main.py", line 433, in main
+2026-04-02T20:51:22.792650589Z     run(
+2026-04-02T20:51:22.792653889Z     ~~~^
+2026-04-02T20:51:22.792656649Z         app,
+2026-04-02T20:51:22.79265978Z         ^^^^
+2026-04-02T20:51:22.79266293Z     ...<47 lines>...
+2026-04-02T20:51:22.79266624Z         h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+2026-04-02T20:51:22.79266929Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.79267255Z     )
+2026-04-02T20:51:22.79267556Z     ^
+2026-04-02T20:51:22.792678841Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/main.py", line 606, in run
+2026-04-02T20:51:22.792682191Z     server.run()
+2026-04-02T20:51:22.792685171Z     ~~~~~~~~~~^^
+2026-04-02T20:51:22.792688521Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 75, in run
+2026-04-02T20:51:22.792692311Z     return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+2026-04-02T20:51:22.792695392Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/runners.py", line 204, in run
+2026-04-02T20:51:22.792698562Z     return runner.run(main)
+2026-04-02T20:51:22.792701652Z            ~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.792718603Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/runners.py", line 127, in run
+2026-04-02T20:51:22.792725793Z     return self._loop.run_until_complete(task)
+2026-04-02T20:51:22.792729274Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.792733344Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+2026-04-02T20:51:22.792736684Z     return future.result()
+2026-04-02T20:51:22.792739764Z            ~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792745055Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 79, in serve
+2026-04-02T20:51:22.792748525Z     await self._serve(sockets)
+2026-04-02T20:51:22.792751695Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 86, in _serve
+2026-04-02T20:51:22.792754565Z     config.load()
+2026-04-02T20:51:22.792757815Z     ~~~~~~~~~~~^^
+2026-04-02T20:51:22.792760966Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/config.py", line 441, in load
+2026-04-02T20:51:22.792763916Z     self.loaded_app = import_from_string(self.app)
+2026-04-02T20:51:22.792766826Z                       ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+2026-04-02T20:51:22.792778337Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-04-02T20:51:22.792781627Z     module = importlib.import_module(module_str)
+2026-04-02T20:51:22.792784837Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/importlib/__init__.py", line 88, in import_module
+2026-04-02T20:51:22.792788007Z     return _bootstrap._gcd_import(name[level:], package, level)
+2026-04-02T20:51:22.792790437Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.792793108Z   File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+2026-04-02T20:51:22.792795988Z   File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+2026-04-02T20:51:22.792798838Z   File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+2026-04-02T20:51:22.792801688Z   File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+2026-04-02T20:51:22.792804338Z   File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+2026-04-02T20:51:22.792806889Z   File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+2026-04-02T20:51:22.792809409Z   File "/opt/render/project/src/backend/main.py", line 10, in <module>
+2026-04-02T20:51:22.792811799Z     from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal
+2026-04-02T20:51:22.792822699Z   File "/opt/render/project/src/backend/models.py", line 50, in <module>
+2026-04-02T20:51:22.79282573Z     Base.metadata.create_all(bind=engine)
+2026-04-02T20:51:22.79282835Z     ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-04-02T20:51:22.79283088Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py", line 5928, in create_all
+2026-04-02T20:51:22.79283338Z     bind._run_ddl_visitor(
+2026-04-02T20:51:22.7928359Z     ~~~~~~~~~~~~~~~~~~~~~^
+2026-04-02T20:51:22.79283832Z         ddl.SchemaGenerator, self, checkfirst=checkfirst, tables=tables
+2026-04-02T20:51:22.792840881Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.792843491Z     )
+2026-04-02T20:51:22.792846351Z     ^
+2026-04-02T20:51:22.792849031Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3267, in _run_ddl_visitor
+2026-04-02T20:51:22.792851591Z     with self.begin() as conn:
+2026-04-02T20:51:22.792859772Z          ~~~~~~~~~~^^
+2026-04-02T20:51:22.792863062Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/contextlib.py", line 141, in __enter__
+2026-04-02T20:51:22.792865852Z     return next(self.gen)
+2026-04-02T20:51:22.792868512Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3257, in begin
+2026-04-02T20:51:22.792871153Z     with self.connect() as conn:
+2026-04-02T20:51:22.792873923Z          ~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792877023Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3293, in connect
+2026-04-02T20:51:22.792879683Z     return self._connection_cls(self)
+2026-04-02T20:51:22.792882433Z            ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.792885623Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+2026-04-02T20:51:22.792888483Z     Connection._handle_dbapi_exception_noconnection(
+2026-04-02T20:51:22.792891384Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-04-02T20:51:22.792894224Z         err, dialect, engine
+2026-04-02T20:51:22.792896954Z         ^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.792899764Z     )
+2026-04-02T20:51:22.792902804Z     ^
+2026-04-02T20:51:22.792906555Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 2448, in _handle_dbapi_exception_noconnection
+2026-04-02T20:51:22.792909655Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-02T20:51:22.792912575Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+2026-04-02T20:51:22.792915335Z     self._dbapi_connection = engine.raw_connection()
+2026-04-02T20:51:22.792917855Z                              ~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792920876Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
+2026-04-02T20:51:22.792924056Z     return self.pool.connect()
+2026-04-02T20:51:22.792927076Z            ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792929906Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+2026-04-02T20:51:22.792932786Z     return _ConnectionFairy._checkout(self)
+2026-04-02T20:51:22.792936126Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.792938387Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
+2026-04-02T20:51:22.792940637Z     fairy = _ConnectionRecord.checkout(pool)
+2026-04-02T20:51:22.792943047Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+2026-04-02T20:51:22.792945477Z     rec = pool._do_get()
+2026-04-02T20:51:22.792947917Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+2026-04-02T20:51:22.792950197Z     with util.safe_reraise():
+2026-04-02T20:51:22.792952598Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792955098Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:22.792957538Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:22.792959908Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+2026-04-02T20:51:22.792962248Z     return self._create_connection()
+2026-04-02T20:51:22.792964638Z            ~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792966948Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+2026-04-02T20:51:22.792974819Z     return _ConnectionRecord(self)
+2026-04-02T20:51:22.792977429Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+2026-04-02T20:51:22.792979789Z     self.__connect()
+2026-04-02T20:51:22.792982139Z     ~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.792984469Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+2026-04-02T20:51:22.79298681Z     with util.safe_reraise():
+2026-04-02T20:51:22.79298914Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:22.79299161Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:22.79299401Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:22.79299635Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+2026-04-02T20:51:22.79299882Z     self.dbapi_connection = connection = pool._invoke_creator(self)
+2026-04-02T20:51:22.793001541Z                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:22.793015071Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 667, in connect
+2026-04-02T20:51:22.793018072Z     return dialect.connect(*cargs_tup, **cparams)
+2026-04-02T20:51:22.793020492Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.793023162Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 630, in connect
+2026-04-02T20:51:22.793025632Z     return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+2026-04-02T20:51:22.793028252Z            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:22.793030972Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/psycopg/connection.py", line 122, in connect
+2026-04-02T20:51:22.793033432Z     raise last_ex.with_traceback(None)
+2026-04-02T20:51:22.793045703Z sqlalchemy.exc.OperationalError: (psycopg.OperationalError) connection is bad: connection to server at "2600:1f13:838:6e59:2ff4:1b51:faa7:da9d", port 5432 failed: Network is unreachable
+2026-04-02T20:51:22.793048693Z 	Is the server running on that host and accepting TCP/IP connections?
+2026-04-02T20:51:22.793051134Z (Background on this error at: https://sqlalche.me/e/20/e3q8)
+2026-04-02T20:51:28.071560881Z ==> Exited with status 1
+2026-04-02T20:51:28.074446841Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
+2026-04-02T20:51:33.788215341Z ==> Running 'uvicorn main:app --host 0.0.0.0 --port $PORT'
+2026-04-02T20:51:43.824634234Z ==> No open ports detected, continuing to scan...
+2026-04-02T20:51:43.943099593Z ==> Docs on specifying a port: https://render.com/docs/web-services#port-binding
+2026-04-02T20:51:48.497734582Z Traceback (most recent call last):
+2026-04-02T20:51:48.499537183Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+2026-04-02T20:51:48.499552294Z     self._dbapi_connection = engine.raw_connection()
+2026-04-02T20:51:48.499557684Z                              ~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.499562675Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
+2026-04-02T20:51:48.499568185Z     return self.pool.connect()
+2026-04-02T20:51:48.499572895Z            ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.499577645Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+2026-04-02T20:51:48.499582686Z     return _ConnectionFairy._checkout(self)
+2026-04-02T20:51:48.499587426Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.499592137Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
+2026-04-02T20:51:48.499596677Z     fairy = _ConnectionRecord.checkout(pool)
+2026-04-02T20:51:48.499601147Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+2026-04-02T20:51:48.499606537Z     rec = pool._do_get()
+2026-04-02T20:51:48.499611218Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+2026-04-02T20:51:48.499616078Z     with util.safe_reraise():
+2026-04-02T20:51:48.499620988Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.499626388Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:48.499631139Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:48.499636219Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+2026-04-02T20:51:48.499640989Z     return self._create_connection()
+2026-04-02T20:51:48.49964592Z            ~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.49965877Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+2026-04-02T20:51:48.499664111Z     return _ConnectionRecord(self)
+2026-04-02T20:51:48.499669031Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+2026-04-02T20:51:48.499673771Z     self.__connect()
+2026-04-02T20:51:48.499678762Z     ~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.499683472Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+2026-04-02T20:51:48.499688312Z     with util.safe_reraise():
+2026-04-02T20:51:48.499692793Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.499697263Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:48.499701923Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:48.499706593Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+2026-04-02T20:51:48.499711974Z     self.dbapi_connection = connection = pool._invoke_creator(self)
+2026-04-02T20:51:48.499716634Z                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.499721445Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 667, in connect
+2026-04-02T20:51:48.499726055Z     return dialect.connect(*cargs_tup, **cparams)
+2026-04-02T20:51:48.499743736Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.499747116Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 630, in connect
+2026-04-02T20:51:48.499750776Z     return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+2026-04-02T20:51:48.499753896Z            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.499757217Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/psycopg/connection.py", line 122, in connect
+2026-04-02T20:51:48.499760567Z     raise last_ex.with_traceback(None)
+2026-04-02T20:51:48.499764477Z psycopg.OperationalError: connection is bad: connection to server at "2600:1f13:838:6e59:2ff4:1b51:faa7:da9d", port 5432 failed: Network is unreachable
+2026-04-02T20:51:48.499767687Z 	Is the server running on that host and accepting TCP/IP connections?
+2026-04-02T20:51:48.499782768Z 
+2026-04-02T20:51:48.499786278Z The above exception was the direct cause of the following exception:
+2026-04-02T20:51:48.499789059Z 
+2026-04-02T20:51:48.499791939Z Traceback (most recent call last):
+2026-04-02T20:51:48.587985995Z   File "/opt/render/project/src/.venv/bin/uvicorn", line 7, in <module>
+2026-04-02T20:51:48.588005326Z     sys.exit(main())
+2026-04-02T20:51:48.588009086Z              ~~~~^^
+2026-04-02T20:51:48.588012636Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1485, in __call__
+2026-04-02T20:51:48.588016236Z     return self.main(*args, **kwargs)
+2026-04-02T20:51:48.588019447Z            ~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588022547Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1406, in main
+2026-04-02T20:51:48.588026397Z     rv = self.invoke(ctx)
+2026-04-02T20:51:48.588029467Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 1269, in invoke
+2026-04-02T20:51:48.588033168Z     return ctx.invoke(self.callback, **ctx.params)
+2026-04-02T20:51:48.588036108Z            ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588039658Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/click/core.py", line 824, in invoke
+2026-04-02T20:51:48.588043128Z     return callback(*args, **kwargs)
+2026-04-02T20:51:48.588045958Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/main.py", line 433, in main
+2026-04-02T20:51:48.588048958Z     run(
+2026-04-02T20:51:48.588052279Z     ~~~^
+2026-04-02T20:51:48.588055289Z         app,
+2026-04-02T20:51:48.588058219Z         ^^^^
+2026-04-02T20:51:48.588061509Z     ...<47 lines>...
+2026-04-02T20:51:48.58806463Z         h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+2026-04-02T20:51:48.58806792Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.58807097Z     )
+2026-04-02T20:51:48.58807392Z     ^
+2026-04-02T20:51:48.58807702Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/main.py", line 606, in run
+2026-04-02T20:51:48.588080011Z     server.run()
+2026-04-02T20:51:48.588083021Z     ~~~~~~~~~~^^
+2026-04-02T20:51:48.588086241Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 75, in run
+2026-04-02T20:51:48.588089831Z     return asyncio_run(self.serve(sockets=sockets), loop_factory=self.config.get_loop_factory())
+2026-04-02T20:51:48.588092521Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/runners.py", line 204, in run
+2026-04-02T20:51:48.588127423Z     return runner.run(main)
+2026-04-02T20:51:48.588134344Z            ~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.588150015Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/runners.py", line 127, in run
+2026-04-02T20:51:48.588153525Z     return self._loop.run_until_complete(task)
+2026-04-02T20:51:48.588156535Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.588160036Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/asyncio/base_events.py", line 719, in run_until_complete
+2026-04-02T20:51:48.588162836Z     return future.result()
+2026-04-02T20:51:48.588165586Z            ~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588168706Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 79, in serve
+2026-04-02T20:51:48.588171436Z     await self._serve(sockets)
+2026-04-02T20:51:48.588190457Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/server.py", line 86, in _serve
+2026-04-02T20:51:48.588194398Z     config.load()
+2026-04-02T20:51:48.588197388Z     ~~~~~~~~~~~^^
+2026-04-02T20:51:48.588200268Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/config.py", line 441, in load
+2026-04-02T20:51:48.588203588Z     self.loaded_app = import_from_string(self.app)
+2026-04-02T20:51:48.588206638Z                       ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+2026-04-02T20:51:48.588209799Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/uvicorn/importer.py", line 19, in import_from_string
+2026-04-02T20:51:48.588212839Z     module = importlib.import_module(module_str)
+2026-04-02T20:51:48.588215739Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/importlib/__init__.py", line 88, in import_module
+2026-04-02T20:51:48.588218779Z     return _bootstrap._gcd_import(name[level:], package, level)
+2026-04-02T20:51:48.588221409Z            ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588223839Z   File "<frozen importlib._bootstrap>", line 1398, in _gcd_import
+2026-04-02T20:51:48.588226609Z   File "<frozen importlib._bootstrap>", line 1371, in _find_and_load
+2026-04-02T20:51:48.58822958Z   File "<frozen importlib._bootstrap>", line 1342, in _find_and_load_unlocked
+2026-04-02T20:51:48.58823275Z   File "<frozen importlib._bootstrap>", line 938, in _load_unlocked
+2026-04-02T20:51:48.58823561Z   File "<frozen importlib._bootstrap_external>", line 759, in exec_module
+2026-04-02T20:51:48.58823846Z   File "<frozen importlib._bootstrap>", line 491, in _call_with_frames_removed
+2026-04-02T20:51:48.588243681Z   File "/opt/render/project/src/backend/main.py", line 10, in <module>
+2026-04-02T20:51:48.588246791Z     from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal
+2026-04-02T20:51:48.588249751Z   File "/opt/render/project/src/backend/models.py", line 50, in <module>
+2026-04-02T20:51:48.588252661Z     Base.metadata.create_all(bind=engine)
+2026-04-02T20:51:48.588256001Z     ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+2026-04-02T20:51:48.588258942Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/sql/schema.py", line 5928, in create_all
+2026-04-02T20:51:48.588262102Z     bind._run_ddl_visitor(
+2026-04-02T20:51:48.588265102Z     ~~~~~~~~~~~~~~~~~~~~~^
+2026-04-02T20:51:48.588268112Z         ddl.SchemaGenerator, self, checkfirst=checkfirst, tables=tables
+2026-04-02T20:51:48.588271082Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588274023Z     )
+2026-04-02T20:51:48.588276933Z     ^
+2026-04-02T20:51:48.588279763Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3267, in _run_ddl_visitor
+2026-04-02T20:51:48.588282723Z     with self.begin() as conn:
+2026-04-02T20:51:48.588291084Z          ~~~~~~~~~~^^
+2026-04-02T20:51:48.588294914Z   File "/opt/render/project/python/Python-3.14.3/lib/python3.14/contextlib.py", line 141, in __enter__
+2026-04-02T20:51:48.588297924Z     return next(self.gen)
+2026-04-02T20:51:48.588301184Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3257, in begin
+2026-04-02T20:51:48.588304084Z     with self.connect() as conn:
+2026-04-02T20:51:48.588307014Z          ~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588310235Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3293, in connect
+2026-04-02T20:51:48.588313045Z     return self._connection_cls(self)
+2026-04-02T20:51:48.588315875Z            ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.588318955Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 145, in __init__
+2026-04-02T20:51:48.588321875Z     Connection._handle_dbapi_exception_noconnection(
+2026-04-02T20:51:48.588324736Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-04-02T20:51:48.588327436Z         err, dialect, engine
+2026-04-02T20:51:48.588329836Z         ^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588332536Z     )
+2026-04-02T20:51:48.588335586Z     ^
+2026-04-02T20:51:48.588339207Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 2448, in _handle_dbapi_exception_noconnection
+2026-04-02T20:51:48.588342337Z     raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+2026-04-02T20:51:48.588345317Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 143, in __init__
+2026-04-02T20:51:48.588348577Z     self._dbapi_connection = engine.raw_connection()
+2026-04-02T20:51:48.588351587Z                              ~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588354448Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/base.py", line 3317, in raw_connection
+2026-04-02T20:51:48.588357308Z     return self.pool.connect()
+2026-04-02T20:51:48.588360158Z            ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588363158Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 448, in connect
+2026-04-02T20:51:48.588366268Z     return _ConnectionFairy._checkout(self)
+2026-04-02T20:51:48.588369418Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.588372338Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 1272, in _checkout
+2026-04-02T20:51:48.588375269Z     fairy = _ConnectionRecord.checkout(pool)
+2026-04-02T20:51:48.588378329Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 712, in checkout
+2026-04-02T20:51:48.588381259Z     rec = pool._do_get()
+2026-04-02T20:51:48.588384269Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 177, in _do_get
+2026-04-02T20:51:48.58838681Z     with util.safe_reraise():
+2026-04-02T20:51:48.58838982Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.58839281Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:48.58839609Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:48.58839895Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/impl.py", line 175, in _do_get
+2026-04-02T20:51:48.58840211Z     return self._create_connection()
+2026-04-02T20:51:48.58840494Z            ~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588408121Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 389, in _create_connection
+2026-04-02T20:51:48.588415681Z     return _ConnectionRecord(self)
+2026-04-02T20:51:48.588419001Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 674, in __init__
+2026-04-02T20:51:48.588421722Z     self.__connect()
+2026-04-02T20:51:48.588424612Z     ~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588427592Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 900, in __connect
+2026-04-02T20:51:48.588430702Z     with util.safe_reraise():
+2026-04-02T20:51:48.588433782Z          ~~~~~~~~~~~~~~~~~^^
+2026-04-02T20:51:48.588436093Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+2026-04-02T20:51:48.588438503Z     raise exc_value.with_traceback(exc_tb)
+2026-04-02T20:51:48.588441303Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/pool/base.py", line 896, in __connect
+2026-04-02T20:51:48.588444313Z     self.dbapi_connection = connection = pool._invoke_creator(self)
+2026-04-02T20:51:48.588459064Z                                          ~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-04-02T20:51:48.588462684Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/create.py", line 667, in connect
+2026-04-02T20:51:48.588465574Z     return dialect.connect(*cargs_tup, **cparams)
+2026-04-02T20:51:48.588468504Z            ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588471605Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/sqlalchemy/engine/default.py", line 630, in connect
+2026-04-02T20:51:48.588474675Z     return self.loaded_dbapi.connect(*cargs, **cparams)  # type: ignore[no-any-return]  # NOQA: E501
+2026-04-02T20:51:48.588478135Z            ~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
+2026-04-02T20:51:48.588481155Z   File "/opt/render/project/src/.venv/lib/python3.14/site-packages/psycopg/connection.py", line 122, in connect
+2026-04-02T20:51:48.588484265Z     raise last_ex.with_traceback(None)
+2026-04-02T20:51:48.588496316Z sqlalchemy.exc.OperationalError: (psycopg.OperationalError) connection is bad: connection to server at "2600:1f13:838:6e59:2ff4:1b51:faa7:da9d", port 5432 failed: Network is unreachable
+2026-04-02T20:51:48.588499566Z 	Is the server running on that host and accepting TCP/IP connections?
+2026-04-02T20:51:48.588502607Z (Background on this error at: https://sqlalche.me/e/20/e3q8)

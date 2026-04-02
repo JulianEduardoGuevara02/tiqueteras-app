@@ -1,7 +1,7 @@
 // En local usa localhost, en produccion detecta automaticamente
 const API_URL = window.location.hostname === "localhost"
     ? "http://localhost:8000"
-    : "https://TU-APP.onrender.com";  // <-- Reemplaza con tu URL de Render
+    : "https://tiqueteras-app.onrender.com";  // <-- Reemplaza con tu URL de Render
 let usuarioActualId = null;
 let usuarioActualNombre = "";
 let diasGlobales = [];
