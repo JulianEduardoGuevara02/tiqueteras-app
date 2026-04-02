@@ -6,6 +6,10 @@ import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tiqueteras.db")
 
+# Asegurar que PostgreSQL use el driver psycopg (v3)
+if DATABASE_URL.startswith("postgresql://"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
 # SQLite necesita check_same_thread=False, PostgreSQL no
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
