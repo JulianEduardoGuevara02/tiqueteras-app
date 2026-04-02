@@ -1,0 +1,21 @@
+# Entornos virtuales de Python
+venv/
+env/
+.env
+
+# Archivos de cache de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Base de datos local
+*.db
+*.sqlite3
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Plan de migracion (no necesario en el repo)
+plan_migracion_nube.md
