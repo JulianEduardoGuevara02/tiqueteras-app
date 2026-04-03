@@ -368,6 +368,88 @@ document.addEventListener("keydown", function(e) {
     }
 });
 
+// === Historial de auditoria ===
+
+var historialOffset = 0;
+var historialTotal = 0;
+var HISTORIAL_LIMITE = 20;
+
+async function abrirHistorial() {
+    historialOffset = 0;
+    document.getElementById("modalHistorial").classList.remove("hidden");
+    cargarHistorial();
+}
+
+function cerrarHistorial() {
+    document.getElementById("modalHistorial").classList.add("hidden");
+}
+
+async function cargarHistorial() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    document.getElementById("historialLoading").classList.remove("hidden");
+    document.getElementById("historialTabla").classList.add("hidden");
+    document.getElementById("historialVacio").classList.add("hidden");
+    document.getElementById("historialPaginacion").classList.add("hidden");
+
+    var res = await fetchConReintentos(
+        API_URL + "/auditoria?limite=" + HISTORIAL_LIMITE + "&offset=" + historialOffset,
+        { headers: { "Authorization": "Bearer " + token } }
+    );
+
+    document.getElementById("historialLoading").classList.add("hidden");
+    if (!res) return;
+
+    var data = await res.json();
+    historialTotal = data.total;
+
+    if (data.logs.length === 0) {
+        document.getElementById("historialVacio").classList.remove("hidden");
+        return;
+    }
+
+    var tbody = document.getElementById("historialBody");
+    var html = "";
+    data.logs.forEach(function(log) {
+        var accionColor = "text-gray-600 bg-gray-100";
+        if (log.accion.indexOf("Crear") !== -1 || log.accion.indexOf("Abonar") !== -1) accionColor = "text-green-700 bg-green-50";
+        if (log.accion.indexOf("Eliminar") !== -1 || log.accion.indexOf("Quitar") !== -1) accionColor = "text-red-700 bg-red-50";
+        if (log.accion.indexOf("Bloquear") !== -1) accionColor = "text-orange-700 bg-orange-50";
+        if (log.accion.indexOf("Exportar") !== -1) accionColor = "text-blue-700 bg-blue-50";
+        if (log.accion.indexOf("Ajustar") !== -1) accionColor = "text-brand-700 bg-brand-50";
+
+        var emailCorto = log.email ? log.email.split("@")[0] : "?";
+
+        html += '<tr class="border-b border-gray-50 hover:bg-gray-50/50">'
+            + '<td class="py-2.5 pr-3 text-gray-400 text-xs whitespace-nowrap">' + escaparHtml(log.fecha) + '</td>'
+            + '<td class="py-2.5 pr-3 text-gray-600 text-xs">' + escaparHtml(emailCorto) + '</td>'
+            + '<td class="py-2.5 pr-3"><span class="px-2 py-0.5 rounded-md text-[11px] font-medium ' + accionColor + '">' + escaparHtml(log.accion) + '</span></td>'
+            + '<td class="py-2.5 text-gray-700 text-xs">' + escaparHtml(log.detalle) + '</td>'
+            + '</tr>';
+    });
+    tbody.innerHTML = html;
+    document.getElementById("historialTabla").classList.remove("hidden");
+
+    // Paginacion
+    document.getElementById("historialPaginacion").classList.remove("hidden");
+    var desde = historialOffset + 1;
+    var hasta = Math.min(historialOffset + HISTORIAL_LIMITE, historialTotal);
+    document.getElementById("historialInfo").textContent = desde + "-" + hasta + " de " + historialTotal;
+    document.getElementById("btnHistPrev").disabled = historialOffset === 0;
+    document.getElementById("btnHistNext").disabled = historialOffset + HISTORIAL_LIMITE >= historialTotal;
+}
+
+function historialPagAnterior() {
+    historialOffset = Math.max(0, historialOffset - HISTORIAL_LIMITE);
+    cargarHistorial();
+}
+
+function historialPagSiguiente() {
+    historialOffset += HISTORIAL_LIMITE;
+    cargarHistorial();
+}
+
 // === Exportar Excel ===
 
 async function descargarExcel() {

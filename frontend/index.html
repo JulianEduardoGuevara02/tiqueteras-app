@@ -50,6 +50,11 @@
                     <span class="block text-[10px] text-brand-600 font-medium uppercase tracking-wide">Hoy</span>
                     <span id="metricHoy" class="text-2xl font-bold text-brand-700 leading-tight">0</span>
                 </div>
+                <button onclick="abrirHistorial()" class="text-gray-400 hover:text-brand-600 transition-colors p-2 rounded-lg hover:bg-brand-50" title="Historial de cambios">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
                 <button onclick="cerrarSesion()" class="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-gray-100" title="Cerrar sesion">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
@@ -177,6 +182,45 @@
                 <div class="flex gap-2">
                     <button onclick="crearUsuario()" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm text-sm">Agregar</button>
                     <button onclick="cerrarModalNuevo()" class="flex-1 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Historial -->
+    <div id="modalHistorial" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarHistorial()">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold text-gray-800">Historial de cambios</h2>
+                <button onclick="cerrarHistorial()" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="overflow-y-auto flex-1 p-4">
+                <div id="historialLoading" class="text-center py-8 text-gray-400">
+                    <div class="inline-block w-6 h-6 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mb-2"></div>
+                    <p>Cargando historial...</p>
+                </div>
+                <table id="historialTabla" class="w-full text-sm hidden">
+                    <thead class="text-[11px] text-gray-500 uppercase tracking-wider border-b">
+                        <tr>
+                            <th class="pb-2 pr-3 text-left font-medium">Fecha</th>
+                            <th class="pb-2 pr-3 text-left font-medium">Usuario</th>
+                            <th class="pb-2 pr-3 text-left font-medium">Accion</th>
+                            <th class="pb-2 text-left font-medium">Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historialBody"></tbody>
+                </table>
+                <div id="historialVacio" class="hidden text-center py-8 text-gray-400">
+                    <p>No hay registros de cambios aun</p>
+                </div>
+            </div>
+            <div id="historialPaginacion" class="hidden shrink-0 border-t border-gray-100 px-6 py-3 flex items-center justify-between bg-gray-50">
+                <span id="historialInfo" class="text-xs text-gray-500"></span>
+                <div class="flex gap-2">
+                    <button onclick="historialPagAnterior()" id="btnHistPrev" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Anterior</button>
+                    <button onclick="historialPagSiguiente()" id="btnHistNext" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Siguiente</button>
                 </div>
             </div>
         </div>

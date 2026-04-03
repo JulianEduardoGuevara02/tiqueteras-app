@@ -1,6 +1,6 @@
 # models.py
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Date, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import datetime
 
@@ -50,5 +50,13 @@ class DiaGlobal(Base):
     __tablename__ = "dias_globales"
     id = Column(Integer, primary_key=True, index=True)
     fecha = Column(Date, unique=True, index=True)
+
+class LogAuditoria(Base):
+    __tablename__ = "log_auditoria"
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    email = Column(String)
+    accion = Column(String)
+    detalle = Column(String)
 
 Base.metadata.create_all(bind=engine)

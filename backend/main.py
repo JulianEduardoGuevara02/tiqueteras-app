@@ -1,18 +1,18 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
 import io
 import openpyxl
-from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal
+from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria
 from auth import verificar_token
 
 app = FastAPI(title="API Tiqueteras")
 
-# CORS: en produccion lee la variable ALLOWED_ORIGINS, en local permite todo
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*").split(",")
 
 app.add_middleware(
@@ -27,20 +27,21 @@ def get_db():
     try: yield db
     finally: db.close()
 
+def registrar_log(db: Session, email: str, accion: str, detalle: str):
+    db.add(LogAuditoria(email=email, accion=accion, detalle=detalle))
+
 class UsuarioCreate(BaseModel): nombre: str
 class SaldoCreate(BaseModel): cantidad: int
 class ExcepcionToggle(BaseModel): fecha: str
 class DiaGlobalToggle(BaseModel): fecha: str
 
 def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dias_a_mostrar: int, dias_globales: set):
-    # Usar las relaciones ya cargadas (eager loading)
     saldos = usuario.saldos
     total_tickets = sum(s.cantidad_tickets for s in saldos)
 
     excepciones_db = usuario.excepciones
     excepciones = {e.fecha: e.tipo_excepcion for e in excepciones_db}
 
-    # Determinar desde cuándo empezamos a contar la contabilidad de este usuario
     fechas_relevantes = [date.today()]
     if saldos:
         fechas_relevantes.append(min(s.fecha_compra for s in saldos))
@@ -59,7 +60,6 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     fecha_cobertura = None
     saldo_al_dia_de_hoy = 0
 
-    # Simular día por día (La máquina del tiempo)
     while fecha_iter <= limite_simulacion:
         es_domingo = fecha_iter.weekday() == 6
         tipo_exc = excepciones.get(fecha_iter)
@@ -68,7 +68,6 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         come = False
         estado_base = ""
 
-        # Día bloqueado globalmente (festivo, almuerzo empresa, etc.)
         if es_global and tipo_exc != "Come_Global":
             estado_base = "global_blocked"
         elif tipo_exc == "Ausencia":
@@ -88,7 +87,6 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
                 deuda += 1
                 estado_base = "fiado"
 
-        # Lógica de colores (Separar pasado, hoy y futuro)
         if fecha_iter < hoy:
             if estado_base == "covered": estado_visual = "past_covered"
             elif estado_base == "fiado": estado_visual = "past_fiado"
@@ -105,13 +103,11 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
 
         estados_dias[fecha_iter] = estado_visual
 
-        # Calcular el balance exacto hasta el día de hoy
         if fecha_iter == hoy:
             saldo_al_dia_de_hoy = tickets_restantes - deuda
 
         fecha_iter += timedelta(days=1)
 
-    # Construir el calendario visual
     calendario = []
     curr_date = fecha_inicio_visual
     for _ in range(dias_a_mostrar):
@@ -119,7 +115,6 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         calendario.append({"fecha": str(curr_date), "estado": estado, "es_hoy": curr_date == hoy})
         curr_date += timedelta(days=1)
 
-    # Texto amigable para la cobertura
     if saldo_al_dia_de_hoy < 0:
         texto_cobertura = "En deuda"
     elif saldo_al_dia_de_hoy > 0 and not fecha_cobertura:
@@ -134,17 +129,20 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     }
 
 @app.post("/usuarios/")
-def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), _=Depends(verificar_token)):
+def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     db.add(Usuario(nombre=user.nombre))
+    registrar_log(db, auth_user.get("email", "?"), "Crear persona", user.nombre)
     db.commit()
     return {"message": "Usuario creado"}
 
 @app.post("/usuarios/{usuario_id}/tickets")
-def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(get_db), _=Depends(verificar_token)):
+def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     db.add(Saldo(usuario_id=usuario_id, cantidad_tickets=saldo.cantidad, fecha_compra=date.today()))
+    signo = "+" if saldo.cantidad > 0 else ""
+    registrar_log(db, auth_user.get("email", "?"), "Ajustar tickets", f"{signo}{saldo.cantidad} tickets a {usuario.nombre}")
     db.commit()
     return {"message": "Tickets ajustados"}
 
@@ -158,7 +156,6 @@ def obtener_dashboard(db: Session = Depends(get_db), _=Depends(verificar_token))
     fecha_inicio = hoy - timedelta(days=4)
     dias_a_mostrar = 19
 
-    # Cargar días globales bloqueados
     dias_globales_db = db.query(DiaGlobal).all()
     dias_globales = {d.fecha for d in dias_globales_db}
 
@@ -190,7 +187,7 @@ def obtener_dashboard(db: Session = Depends(get_db), _=Depends(verificar_token))
     }
 
 @app.post("/usuarios/{usuario_id}/excepcion")
-def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depends(get_db), _=Depends(verificar_token)):
+def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -198,9 +195,8 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
     es_domingo = fecha_obj.weekday() == 6
     es_global = db.query(DiaGlobal).filter_by(fecha=fecha_obj).first() is not None
 
-    # Determinar el tipo de excepción según contexto
     if es_global:
-        tipo = "Come_Global"  # Reactiva a esta persona en un día bloqueado
+        tipo = "Come_Global"
     elif es_domingo:
         tipo = "Domingo_Habilitado"
     else:
@@ -210,42 +206,69 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
 
     if exc_existente:
         db.delete(exc_existente)
+        registrar_log(db, auth_user.get("email", "?"), "Quitar excepcion", f"{usuario.nombre} en {req.fecha} ({tipo})")
     else:
         db.add(Excepcion(usuario_id=usuario_id, fecha=fecha_obj, tipo_excepcion=tipo))
+        registrar_log(db, auth_user.get("email", "?"), "Agregar excepcion", f"{usuario.nombre} en {req.fecha} ({tipo})")
 
     db.commit()
-    return {"message": "Excepción procesada"}
+    return {"message": "Excepcion procesada"}
 
 @app.post("/dias-globales/")
-def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db), _=Depends(verificar_token)):
+def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     fecha_obj = datetime.strptime(req.fecha, "%Y-%m-%d").date()
     existente = db.query(DiaGlobal).filter_by(fecha=fecha_obj).first()
 
     if existente:
-        # Al desactivar, limpiar excepciones Come_Global de ese día
         db.query(Excepcion).filter_by(fecha=fecha_obj, tipo_excepcion="Come_Global").delete()
         db.delete(existente)
+        registrar_log(db, auth_user.get("email", "?"), "Desbloquear dia", req.fecha)
         activo = False
     else:
         db.add(DiaGlobal(fecha=fecha_obj))
+        registrar_log(db, auth_user.get("email", "?"), "Bloquear dia", req.fecha)
         activo = True
 
     db.commit()
-    return {"message": "Día global procesado", "activo": activo}
+    return {"message": "Dia global procesado", "activo": activo}
 
 @app.delete("/usuarios/{usuario_id}")
-def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), _=Depends(verificar_token)):
+def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    nombre = usuario.nombre
     db.query(Saldo).filter(Saldo.usuario_id == usuario_id).delete()
     db.query(Excepcion).filter(Excepcion.usuario_id == usuario_id).delete()
     db.delete(usuario)
+    registrar_log(db, auth_user.get("email", "?"), "Eliminar persona", nombre)
     db.commit()
     return {"message": "Usuario eliminado"}
 
+@app.get("/auditoria")
+def obtener_auditoria(
+    limite: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    _=Depends(verificar_token)
+):
+    total = db.query(LogAuditoria).count()
+    logs = db.query(LogAuditoria).order_by(desc(LogAuditoria.fecha)).offset(offset).limit(limite).all()
+    return {
+        "total": total,
+        "logs": [
+            {
+                "fecha": log.fecha.strftime("%Y-%m-%d %H:%M") if log.fecha else "",
+                "email": log.email,
+                "accion": log.accion,
+                "detalle": log.detalle,
+            }
+            for log in logs
+        ]
+    }
+
 @app.get("/exportar")
-def exportar_excel(fecha: str, db: Session = Depends(get_db), _=Depends(verificar_token)):
+def exportar_excel(fecha: str, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     fecha_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
     usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
@@ -257,7 +280,6 @@ def exportar_excel(fecha: str, db: Session = Depends(get_db), _=Depends(verifica
     for u in usuarios:
         proyeccion = calcular_proyeccion_usuario(u, fecha_obj, 1, dias_globales)
         estado_dia = proyeccion["calendario"][0]["estado"]
-        # Se exportan a Excel tanto los que tienen tickets (covered) como los que deben (fiado)
         if estado_dia in ["covered", "fiado", "past_covered", "past_fiado"]:
             comensales.append(u.nombre)
 
@@ -271,9 +293,12 @@ def exportar_excel(fecha: str, db: Session = Depends(get_db), _=Depends(verifica
     stream = io.BytesIO()
     wb.save(stream)
     stream.seek(0)
-    
+
+    registrar_log(db, auth_user.get("email", "?"), "Exportar Excel", f"Fecha: {fecha}, {len(comensales)} comensales")
+    db.commit()
+
     return StreamingResponse(
-        stream, 
+        stream,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=comensales_{fecha}.xlsx"}
     )
