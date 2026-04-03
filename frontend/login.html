@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesion - Tiqueteras</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm space-y-6">
+        <div class="text-center">
+            <h1 class="text-2xl font-bold text-gray-800">Tiqueteras</h1>
+            <p class="text-gray-500 text-sm mt-1">Gestion de Alimentacion</p>
+        </div>
+
+        <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded"></div>
+
+        <form id="loginForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Correo electronico</label>
+                <input type="email" id="email" required autocomplete="email"
+                    class="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="correo@ejemplo.com">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Contrasena</label>
+                <input type="password" id="password" required autocomplete="current-password" minlength="6"
+                    class="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Minimo 6 caracteres">
+            </div>
+            <button type="submit" id="btnSubmit"
+                class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                Iniciar Sesion
+            </button>
+        </form>
+
+        <p class="text-center text-xs text-gray-400">Acceso solo para administradores autorizados</p>
+    </div>
+
+    <script>
+        const SUPABASE_URL = "https://gsjlkppgsyjoddihuuup.supabase.co";
+        const SUPABASE_ANON_KEY = "sb_publishable_ECw9E40Z7N5FbQ54LP9kgQ_mOMz_289";
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Si ya tiene sesion activa, redirigir al dashboard
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session) window.location.href = "index.html";
+        });
+
+        const form = document.getElementById("loginForm");
+        const errorMsg = document.getElementById("errorMsg");
+        const btnSubmit = document.getElementById("btnSubmit");
+
+        function mostrarError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.remove("hidden");
+        }
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            errorMsg.classList.add("hidden");
+            btnSubmit.disabled = true;
+            btnSubmit.textContent = "Verificando...";
+
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+            if (error) {
+                mostrarError("Credenciales incorrectas o usuario no autorizado.");
+                btnSubmit.disabled = false;
+                btnSubmit.textContent = "Iniciar Sesion";
+                return;
+            }
+
+            window.location.href = "index.html";
+        });
+    </script>
+</body>
+</html>

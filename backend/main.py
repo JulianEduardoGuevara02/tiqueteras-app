@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import io
 import openpyxl
 from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal
+from auth import verificar_token
 
 app = FastAPI(title="API Tiqueteras")
 
@@ -133,13 +134,13 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     }
 
 @app.post("/usuarios/")
-def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db)):
+def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), _=Depends(verificar_token)):
     db.add(Usuario(nombre=user.nombre))
     db.commit()
     return {"message": "Usuario creado"}
 
 @app.post("/usuarios/{usuario_id}/tickets")
-def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(get_db)):
+def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(get_db), _=Depends(verificar_token)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -148,7 +149,7 @@ def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(g
     return {"message": "Tickets ajustados"}
 
 @app.get("/dashboard")
-def obtener_dashboard(db: Session = Depends(get_db)):
+def obtener_dashboard(db: Session = Depends(get_db), _=Depends(verificar_token)):
     usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
         joinedload(Usuario.excepciones)
@@ -189,7 +190,7 @@ def obtener_dashboard(db: Session = Depends(get_db)):
     }
 
 @app.post("/usuarios/{usuario_id}/excepcion")
-def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depends(get_db)):
+def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depends(get_db), _=Depends(verificar_token)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -216,7 +217,7 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
     return {"message": "Excepción procesada"}
 
 @app.post("/dias-globales/")
-def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db)):
+def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db), _=Depends(verificar_token)):
     fecha_obj = datetime.strptime(req.fecha, "%Y-%m-%d").date()
     existente = db.query(DiaGlobal).filter_by(fecha=fecha_obj).first()
 
@@ -233,7 +234,7 @@ def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db)):
     return {"message": "Día global procesado", "activo": activo}
 
 @app.delete("/usuarios/{usuario_id}")
-def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db)):
+def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), _=Depends(verificar_token)):
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -244,7 +245,7 @@ def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db)):
     return {"message": "Usuario eliminado"}
 
 @app.get("/exportar")
-def exportar_excel(fecha: str, db: Session = Depends(get_db)):
+def exportar_excel(fecha: str, db: Session = Depends(get_db), _=Depends(verificar_token)):
     fecha_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
     usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),

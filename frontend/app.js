@@ -1,29 +1,79 @@
+// === Configuracion de Supabase Auth ===
+const SUPABASE_URL = "https://gsjlkppgsyjoddihuuup.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_ECw9E40Z7N5FbQ54LP9kgQ_mOMz_289";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 // En local usa localhost, en produccion detecta automaticamente
 const API_URL = window.location.hostname === "localhost"
     ? "http://localhost:8000"
-    : "https://tiqueteras-app.onrender.com";  // <-- Reemplaza con tu URL de Render
+    : "https://tiqueteras-app.onrender.com";
+
 let usuarioActualId = null;
 let usuarioActualNombre = "";
 let diasGlobales = [];
 
-// Sanitizar texto para prevenir XSS
+// === Autenticacion ===
+
+async function obtenerToken() {
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!session) {
+        window.location.href = "login.html";
+        return null;
+    }
+    return session.access_token;
+}
+
+function authHeaders(token) {
+    return {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+    };
+}
+
+async function cerrarSesion() {
+    await supabaseClient.auth.signOut();
+    window.location.href = "login.html";
+}
+
+// Verificar sesion al cargar la pagina
+supabaseClient.auth.getSession().then(({ data: { session } }) => {
+    if (!session) {
+        window.location.href = "login.html";
+    } else {
+        cargarDashboard();
+    }
+});
+
+// === Utilidades ===
+
 function escaparHtml(texto) {
     const div = document.createElement("div");
     div.textContent = texto;
     return div.innerHTML;
 }
 
-// Obtener inicial del día de la semana
 function inicialDia(fechaStr) {
     const dateObj = new Date(fechaStr + 'T00:00:00');
-    const dia = dateObj.getDay(); // 0=dom, 1=lun...
+    const dia = dateObj.getDay();
     return ["D", "L", "M", "Mi", "J", "V", "S"][dia];
 }
 
-async function cargarDashboard() {
-    const res = await fetch(`${API_URL}/dashboard`);
-    const data = await res.json();
+// === Dashboard ===
 
+async function cargarDashboard() {
+    const token = await obtenerToken();
+    if (!token) return;
+
+    const res = await fetch(`${API_URL}/dashboard`, {
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+
+    if (res.status === 401) {
+        await cerrarSesion();
+        return;
+    }
+
+    const data = await res.json();
     diasGlobales = data.dias_globales || [];
     document.getElementById("metricHoy").innerText = data.metricas.almuerzos_hoy;
     renderizarCalendario(data);
@@ -77,13 +127,11 @@ function renderizarCalendario(data) {
             let textColor = "text-gray-400";
             let label = inicial;
 
-            // Pasados (atenuados)
             if (dia.estado === "past_covered") { colorClass = "bg-green-800 opacity-30"; textColor = "text-white"; }
             if (dia.estado === "past_fiado") { colorClass = "bg-orange-700 opacity-35"; textColor = "text-white"; }
             if (dia.estado === "past_absence") { colorClass = "bg-gray-300 opacity-40"; textColor = "text-gray-500"; }
             if (dia.estado === "past_global_blocked") { colorClass = "bg-red-800 opacity-30"; textColor = "text-white"; }
 
-            // Hoy y futuro
             if (dia.estado === "covered") { colorClass = "bg-green-500 shadow-sm"; textColor = "text-white"; }
             if (dia.estado === "fiado") { colorClass = "bg-orange-400 shadow-sm"; textColor = "text-white"; }
             if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-200"; textColor = "text-gray-400"; }
@@ -111,19 +159,25 @@ document.getElementById("searchInput").addEventListener("input", (e) => {
     });
 });
 
+// === Acciones autenticadas ===
+
 async function toggleDiaGlobal(fecha) {
+    const token = await obtenerToken();
+    if (!token) return;
     await fetch(`${API_URL}/dias-globales/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
     cargarDashboard();
 }
 
 async function toggleExcepcion(userId, fecha) {
+    const token = await obtenerToken();
+    if (!token) return;
     await fetch(`${API_URL}/usuarios/${userId}/excepcion`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
     cargarDashboard();
@@ -169,9 +223,11 @@ async function ajustarTickets(accion) {
     }
     if (accion === 'quitar') cantidad = -cantidad;
 
+    const token = await obtenerToken();
+    if (!token) return;
     await fetch(`${API_URL}/usuarios/${usuarioActualId}/tickets`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders(token),
         body: JSON.stringify({ cantidad: cantidad })
     });
     cerrarModal();
@@ -182,7 +238,12 @@ async function eliminarUsuario() {
     if (!confirm(`Estas seguro de eliminar a "${usuarioActualNombre}"? Se borraran todos sus tickets y excepciones.`)) {
         return;
     }
-    await fetch(`${API_URL}/usuarios/${usuarioActualId}`, { method: "DELETE" });
+    const token = await obtenerToken();
+    if (!token) return;
+    await fetch(`${API_URL}/usuarios/${usuarioActualId}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+    });
     cerrarModal();
     cargarDashboard();
 }
@@ -190,18 +251,30 @@ async function eliminarUsuario() {
 async function abrirModalUsuarioNuevo() {
     const nombre = prompt("Nombre de la nueva persona:");
     if (nombre && nombre.trim() !== "") {
+        const token = await obtenerToken();
+        if (!token) return;
         await fetch(`${API_URL}/usuarios/`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: authHeaders(token),
             body: JSON.stringify({ nombre: nombre.trim() })
         });
         cargarDashboard();
     }
 }
 
-function descargarExcel() {
+async function descargarExcel() {
+    const token = await obtenerToken();
+    if (!token) return;
     const hoy = new Date().toISOString().split('T')[0];
-    window.location.href = `${API_URL}/exportar?fecha=${hoy}`;
+    const res = await fetch(`${API_URL}/exportar?fecha=${hoy}`, {
+        headers: { "Authorization": `Bearer ${token}` }
+    });
+    if (!res.ok) { alert("Error al exportar"); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comensales_${hoy}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
 }
-
-cargarDashboard();
