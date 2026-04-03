@@ -8,7 +8,7 @@ from pydantic import BaseModel
 import io
 import openpyxl
 from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal
-from auth import verificar_token
+from auth import verificar_token, diagnostico_token
 
 app = FastAPI(title="API Tiqueteras")
 
@@ -21,6 +21,29 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/debug-auth")
+def debug_auth(authorization: str = ""):
+    """TEMPORAL: diagnostico de JWT. Eliminar despues de resolver."""
+    from fastapi import Header
+    return {"error": "Usa /debug-auth con header Authorization"}
+
+@app.get("/debug-auth-test")
+async def debug_auth_test(request: None = None):
+    """TEMPORAL"""
+    from starlette.requests import Request
+    return {"status": "endpoint accesible"}
+
+from fastapi import Request as Req
+
+@app.post("/debug-token")
+async def debug_token(request: Req):
+    """TEMPORAL: envia el token en el body para diagnosticar."""
+    body = await request.json()
+    token = body.get("token", "")
+    if not token:
+        return {"error": "Envia {\"token\": \"tu_token\"}"}
+    return diagnostico_token(token)
 
 def get_db():
     db = SessionLocal()
