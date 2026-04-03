@@ -42,10 +42,10 @@
     <script>
         const SUPABASE_URL = "https://gsjlkppgsyjoddihuuup.supabase.co";
         const SUPABASE_ANON_KEY = "sb_publishable_ECw9E40Z7N5FbQ54LP9kgQ_mOMz_289";
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Si ya tiene sesion activa, redirigir al dashboard
-        supabase.auth.getSession().then(({ data: { session } }) => {
+        supabaseClient.auth.getSession().then(({ data: { session } }) => {
             if (session) window.location.href = "index.html";
         });
 
@@ -67,7 +67,7 @@
             const email = document.getElementById("email").value.trim();
             const password = document.getElementById("password").value;
 
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
             if (error) {
                 mostrarError("Credenciales incorrectas o usuario no autorizado.");
