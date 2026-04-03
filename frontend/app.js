@@ -54,16 +54,6 @@ supabaseClient.auth.getSession().then(({ data: { session } }) => {
     if (!session) {
         window.location.href = "login.html";
     } else {
-        // TEMPORAL: diagnostico de JWT antes de cargar dashboard
-        fetch(API_URL + "/debug-token", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: session.access_token })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(d) { console.log("=== DIAGNOSTICO JWT ===", JSON.stringify(d, null, 2)); })
-        .catch(function(e) { console.log("=== DIAGNOSTICO ERROR ===", e); });
-
         cargarDashboard();
     }
 });
@@ -76,11 +66,8 @@ async function fetchConReintentos(url, opciones, maxIntentos) {
         try {
             const res = await fetch(url, opciones);
 
-            // TEMPORAL: no redirigir en 401 para ver diagnostico
             if (res.status === 401) {
-                var errorBody = await res.json().catch(function() { return {}; });
-                console.log("=== 401 DETALLE ===", JSON.stringify(errorBody));
-                ocultarCarga();
+                await cerrarSesion();
                 return null;
             }
 
