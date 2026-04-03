@@ -1,4 +1,4 @@
-// === Configuracion de Supabase Auth ===
+// === Configuracion ===
 const SUPABASE_URL = "https://gsjlkppgsyjoddihuuup.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_ECw9E40Z7N5FbQ54LP9kgQ_mOMz_289";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -7,29 +7,60 @@ const API_URL = window.location.hostname === "localhost"
     ? "http://localhost:8000"
     : "https://tiqueteras-app.onrender.com";
 
-let usuarioActualId = null;
-let usuarioActualNombre = "";
-let diasGlobales = [];
+var usuarioActualId = null;
+var usuarioActualNombre = "";
+var diasGlobales = [];
+
+// === Toasts ===
+
+function mostrarToast(mensaje, tipo) {
+    tipo = tipo || "info";
+    var container = document.getElementById("toastContainer");
+    var colores = {
+        success: "bg-green-600",
+        error: "bg-red-600",
+        info: "bg-brand-600"
+    };
+    var iconos = {
+        success: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>',
+        error: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>',
+        info: '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>'
+    };
+
+    var toast = document.createElement("div");
+    toast.className = "toast-enter pointer-events-auto flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-white text-sm " + (colores[tipo] || colores.info);
+    toast.innerHTML = '<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">' + (iconos[tipo] || iconos.info) + '</svg>' + escaparHtml(mensaje);
+    container.appendChild(toast);
+
+    setTimeout(function() {
+        toast.classList.remove("toast-enter");
+        toast.classList.add("toast-exit");
+        setTimeout(function() { toast.remove(); }, 300);
+    }, 3000);
+}
 
 // === Indicador de carga ===
 
 function mostrarCarga(msg) {
-    const el = document.getElementById("loadingOverlay");
+    var el = document.getElementById("loadingOverlay");
     if (el) {
         document.getElementById("loadingMsg").textContent = msg || "Conectando con el servidor...";
         el.classList.remove("hidden");
     }
+    document.getElementById("tableContainer").classList.add("hidden");
+    document.getElementById("emptyState").classList.add("hidden");
 }
 
 function ocultarCarga() {
-    const el = document.getElementById("loadingOverlay");
+    var el = document.getElementById("loadingOverlay");
     if (el) el.classList.add("hidden");
 }
 
 // === Autenticacion ===
 
 async function obtenerToken() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
+    var result = await supabaseClient.auth.getSession();
+    var session = result.data.session;
     if (!session) {
         window.location.href = "login.html";
         return null;
@@ -38,10 +69,7 @@ async function obtenerToken() {
 }
 
 function authHeaders(token) {
-    return {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`
-    };
+    return { "Content-Type": "application/json", "Authorization": "Bearer " + token };
 }
 
 async function cerrarSesion() {
@@ -50,40 +78,34 @@ async function cerrarSesion() {
 }
 
 // Verificar sesion al cargar
-supabaseClient.auth.getSession().then(({ data: { session } }) => {
-    if (!session) {
+supabaseClient.auth.getSession().then(function(result) {
+    if (!result.data.session) {
         window.location.href = "login.html";
     } else {
         cargarDashboard();
     }
 });
 
-// === Fetch con reintentos (para cold start de Render) ===
+// === Fetch con reintentos ===
 
 async function fetchConReintentos(url, opciones, maxIntentos) {
     maxIntentos = maxIntentos || 3;
-    for (let intento = 1; intento <= maxIntentos; intento++) {
+    for (var intento = 1; intento <= maxIntentos; intento++) {
         try {
-            const res = await fetch(url, opciones);
-
+            var res = await fetch(url, opciones);
             if (res.status === 401) {
                 await cerrarSesion();
                 return null;
             }
-
-            if (!res.ok) {
-                throw new Error("HTTP " + res.status);
-            }
-
+            if (!res.ok) throw new Error("HTTP " + res.status);
             return res;
         } catch (err) {
             if (intento < maxIntentos) {
-                // Esperar antes de reintentar (3s, 6s)
-                mostrarCarga("Reintentando conexion... (intento " + intento + "/" + maxIntentos + ")");
+                mostrarCarga("Reintentando conexion... (" + intento + "/" + maxIntentos + ")");
                 await new Promise(function(r) { setTimeout(r, 3000 * intento); });
             } else {
                 ocultarCarga();
-                console.error("Error de conexion tras " + maxIntentos + " intentos:", err);
+                mostrarToast("Error de conexion con el servidor", "error");
                 return null;
             }
         }
@@ -94,105 +116,131 @@ async function fetchConReintentos(url, opciones, maxIntentos) {
 // === Utilidades ===
 
 function escaparHtml(texto) {
-    const div = document.createElement("div");
+    var div = document.createElement("div");
     div.textContent = texto;
     return div.innerHTML;
 }
 
 function inicialDia(fechaStr) {
-    const dateObj = new Date(fechaStr + 'T00:00:00');
-    const dia = dateObj.getDay();
-    return ["D", "L", "M", "Mi", "J", "V", "S"][dia];
+    var dateObj = new Date(fechaStr + "T00:00:00");
+    return ["D", "L", "M", "Mi", "J", "V", "S"][dateObj.getDay()];
+}
+
+function nombreDiaCorto(fechaStr) {
+    return new Date(fechaStr + "T00:00:00").toLocaleDateString("es-CO", { weekday: "short" });
+}
+
+function formatearFechaCorta(fechaStr) {
+    var parts = fechaStr.split("-");
+    return parts[2] + "/" + parts[1];
+}
+
+function formatearFechaCompleta(fechaStr) {
+    if (!fechaStr || fechaStr === "Sin saldo" || fechaStr === "En deuda" || fechaStr.indexOf("Suficiente") !== -1) {
+        return fechaStr;
+    }
+    var parts = fechaStr.split("-");
+    var dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
+    return dateObj.toLocaleDateString("es-CO", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
 // === Dashboard ===
 
 async function cargarDashboard() {
-    const token = await obtenerToken();
+    var token = await obtenerToken();
     if (!token) return;
 
     mostrarCarga("Cargando datos del servidor...");
 
-    const res = await fetchConReintentos(
+    var res = await fetchConReintentos(
         API_URL + "/dashboard",
         { headers: { "Authorization": "Bearer " + token } }
     );
 
     ocultarCarga();
-
     if (!res) return;
 
-    const data = await res.json();
+    var data = await res.json();
     diasGlobales = data.dias_globales || [];
     document.getElementById("metricHoy").innerText = data.metricas.almuerzos_hoy;
-    renderizarCalendario(data);
+
+    if (data.usuarios.length === 0) {
+        document.getElementById("emptyState").classList.remove("hidden");
+        document.getElementById("tableContainer").classList.add("hidden");
+    } else {
+        document.getElementById("emptyState").classList.add("hidden");
+        document.getElementById("tableContainer").classList.remove("hidden");
+        renderizarCalendario(data);
+    }
 }
 
 function renderizarCalendario(data) {
-    const thead = document.getElementById("calendarHead");
-    const tbody = document.getElementById("calendarBody");
+    var thead = document.getElementById("calendarHead");
+    var tbody = document.getElementById("calendarBody");
+    var hoyStr = new Date().toISOString().split("T")[0];
 
-    let htmlHead = '<tr><th class="p-3 w-48 sticky left-0 bg-gray-100 z-20">Persona</th>';
+    var htmlHead = '<tr><th class="p-3 w-44 sticky left-0 bg-gray-50 z-20 border-r border-gray-200">Persona</th>';
     data.fechas_columnas.forEach(function(fecha) {
-        const dateObj = new Date(fecha + 'T00:00:00');
-        const isSunday = dateObj.getDay() === 0;
-        const isToday = fecha === new Date().toISOString().split('T')[0];
-        const isGlobal = diasGlobales.includes(fecha);
-        const nombreDia = dateObj.toLocaleDateString('es-CO', { weekday: 'short' });
+        var dateObj = new Date(fecha + "T00:00:00");
+        var isSunday = dateObj.getDay() === 0;
+        var isToday = fecha === hoyStr;
+        var isGlobal = diasGlobales.indexOf(fecha) !== -1;
 
-        const bgClass = isToday ? 'bg-blue-100' : isGlobal ? 'bg-red-100' : '';
-        const textClass = isSunday ? 'text-red-500' : '';
+        var bg = isToday ? "bg-brand-50" : isGlobal ? "bg-red-50" : "bg-gray-50";
+        var text = isSunday ? "text-red-400" : "text-gray-500";
+        var todayRing = isToday ? "ring-2 ring-brand-500 ring-inset" : "";
 
-        htmlHead += '<th class="p-2 text-center min-w-[80px] border-l cursor-pointer select-none ' + bgClass + ' ' + textClass + '"'
+        htmlHead += '<th class="p-1.5 text-center min-w-[70px] border-l border-gray-100 cursor-pointer select-none ' + bg + " " + todayRing + '"'
             + ' onclick="toggleDiaGlobal(\'' + fecha + '\')"'
-            + ' title="Click para bloquear/desbloquear este dia">'
-            + '<div class="capitalize text-sm">' + nombreDia + '</div>'
-            + '<div class="text-[10px] font-normal text-gray-500 mt-1 tracking-tighter">' + escaparHtml(fecha) + '</div>'
-            + (isGlobal ? '<div class="text-[9px] text-red-600 font-bold mt-0.5">BLOQUEADO</div>' : '')
+            + ' title="Click para bloquear/desbloquear">'
+            + '<div class="capitalize text-[11px] font-medium ' + text + '">' + nombreDiaCorto(fecha) + '</div>'
+            + '<div class="text-[10px] text-gray-400 mt-0.5">' + formatearFechaCorta(fecha) + '</div>'
+            + (isGlobal ? '<div class="text-[8px] text-red-500 font-bold mt-0.5">BLOQ</div>' : '')
             + '</th>';
     });
     htmlHead += '</tr>';
     thead.innerHTML = htmlHead;
 
-    let htmlBody = "";
+    var htmlBody = "";
     data.usuarios.forEach(function(user) {
-        const nombreSafe = escaparHtml(user.nombre);
-        var saldoText = user.saldo_actual < 0
-            ? '<span class="text-red-500 font-bold ml-2 text-xs">(-' + Math.abs(user.saldo_actual) + ')</span>'
-            : '<span class="text-blue-500 font-bold ml-2 text-xs">(+' + user.saldo_actual + ')</span>';
+        var nombreSafe = escaparHtml(user.nombre);
+        var saldoColor = user.saldo_actual < 0 ? "text-red-500" : "text-brand-600";
+        var saldoSign = user.saldo_actual < 0 ? "" : "+";
+        var saldoBadge = '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
 
-        htmlBody += '<tr class="border-b user-row hover:bg-gray-50" data-nombre="' + nombreSafe.toLowerCase() + '">'
-            + '<td class="p-3 font-medium cursor-pointer text-gray-800 hover:text-blue-600 sticky left-0 bg-white z-10 border-r"'
-            + ' onclick="abrirModalPerfil(' + user.id + ', \'' + nombreSafe.replace(/'/g, "\\'") + '\', ' + user.saldo_actual + ', \'' + escaparHtml(user.fecha_cobertura) + '\')">'
-            + nombreSafe + ' ' + saldoText
-            + '</td>';
+        htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors" data-nombre="' + nombreSafe.toLowerCase() + '">'
+            + '<td class="p-2.5 font-medium cursor-pointer text-gray-700 hover:text-brand-600 sticky left-0 bg-white z-10 border-r border-gray-200 transition-colors"'
+            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\')">'
+            + '<div class="flex items-center">'
+            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge
+            + '</div></td>';
 
         user.calendario.forEach(function(dia) {
-            var isToday = dia.es_hoy;
             var inicial = inicialDia(dia.fecha);
-            var todayBg = isToday ? 'bg-blue-50' : '';
+            var todayBg = dia.es_hoy ? "bg-brand-50/50" : "";
 
-            var colorClass = "bg-white";
-            var textColor = "text-gray-400";
+            var colorClass = "bg-white border border-gray-100";
+            var textColor = "text-gray-300";
 
-            if (dia.estado === "past_covered") { colorClass = "bg-green-800 opacity-30"; textColor = "text-white"; }
-            if (dia.estado === "past_fiado") { colorClass = "bg-orange-700 opacity-35"; textColor = "text-white"; }
-            if (dia.estado === "past_absence") { colorClass = "bg-gray-300 opacity-40"; textColor = "text-gray-500"; }
-            if (dia.estado === "past_global_blocked") { colorClass = "bg-red-800 opacity-30"; textColor = "text-white"; }
+            // Pasados
+            if (dia.estado === "past_covered") { colorClass = "bg-green-100 border border-green-200"; textColor = "text-green-400"; }
+            if (dia.estado === "past_fiado") { colorClass = "bg-orange-100 border border-orange-200"; textColor = "text-orange-400"; }
+            if (dia.estado === "past_absence") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
+            if (dia.estado === "past_global_blocked") { colorClass = "bg-red-100 border border-red-200"; textColor = "text-red-300"; }
 
-            if (dia.estado === "covered") { colorClass = "bg-green-500 shadow-sm"; textColor = "text-white"; }
-            if (dia.estado === "fiado") { colorClass = "bg-orange-400 shadow-sm"; textColor = "text-white"; }
-            if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-200"; textColor = "text-gray-400"; }
-            if (dia.estado === "absence") { colorClass = "bg-red-500 shadow-sm"; textColor = "text-white"; }
-            if (dia.estado === "sunday_blocked") { colorClass = "bg-gray-100"; textColor = "text-gray-400"; }
-            if (dia.estado === "global_blocked") { colorClass = "bg-red-700 shadow-sm"; textColor = "text-white"; }
+            // Hoy y futuro
+            if (dia.estado === "covered") { colorClass = "bg-green-500 border border-green-600"; textColor = "text-white"; }
+            if (dia.estado === "fiado") { colorClass = "bg-orange-400 border border-orange-500"; textColor = "text-white"; }
+            if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
+            if (dia.estado === "absence") { colorClass = "bg-red-500 border border-red-600"; textColor = "text-white"; }
+            if (dia.estado === "sunday_blocked") { colorClass = "bg-gray-50 border border-gray-100"; textColor = "text-gray-300"; }
+            if (dia.estado === "global_blocked") { colorClass = "bg-red-600 border border-red-700"; textColor = "text-white"; }
 
-            htmlBody += '<td class="p-1 min-w-[80px] border-l ' + todayBg + '">'
-                + '<div onclick="toggleExcepcion(' + user.id + ', \'' + dia.fecha + '\')"'
-                + ' class="h-10 w-full rounded ' + colorClass + ' cursor-pointer transition-all hover:opacity-80 flex justify-center items-center text-xs font-medium ' + textColor + '"'
+            htmlBody += '<td class="p-1 min-w-[70px] border-l border-gray-100 ' + todayBg + '">'
+                + '<div onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\')"'
+                + ' class="h-9 w-full rounded-lg ' + colorClass + ' cursor-pointer transition-all hover:scale-105 hover:shadow-sm flex justify-center items-center text-xs font-medium ' + textColor + '"'
                 + ' title="' + dia.fecha + ' - ' + dia.estado + '">'
-                + inicial
-                + '</div></td>';
+                + inicial + '</div></td>';
         });
         htmlBody += '</tr>';
     });
@@ -202,18 +250,17 @@ function renderizarCalendario(data) {
 document.getElementById("searchInput").addEventListener("input", function(e) {
     var term = e.target.value.toLowerCase();
     document.querySelectorAll(".user-row").forEach(function(row) {
-        row.style.display = row.dataset.nombre.includes(term) ? "" : "none";
+        row.style.display = row.dataset.nombre.indexOf(term) !== -1 ? "" : "none";
     });
 });
 
-// === Acciones autenticadas ===
+// === Acciones ===
 
 async function toggleDiaGlobal(fecha) {
     var token = await obtenerToken();
     if (!token) return;
     await fetchConReintentos(API_URL + "/dias-globales/", {
-        method: "POST",
-        headers: authHeaders(token),
+        method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
     cargarDashboard();
@@ -223,21 +270,13 @@ async function toggleExcepcion(userId, fecha) {
     var token = await obtenerToken();
     if (!token) return;
     await fetchConReintentos(API_URL + "/usuarios/" + userId + "/excepcion", {
-        method: "POST",
-        headers: authHeaders(token),
+        method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
     cargarDashboard();
 }
 
-function formatearFechaCompleta(fechaStr) {
-    if (!fechaStr || fechaStr === 'Sin saldo' || fechaStr === 'En deuda' || fechaStr.includes('Suficiente')) {
-        return fechaStr;
-    }
-    var parts = fechaStr.split('-');
-    var dateObj = new Date(parts[0], parts[1] - 1, parts[2]);
-    return dateObj.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-}
+// === Modal: Perfil ===
 
 function abrirModalPerfil(id, nombre, saldo, cobertura) {
     usuarioActualId = id;
@@ -246,11 +285,11 @@ function abrirModalPerfil(id, nombre, saldo, cobertura) {
 
     var saldoEl = document.getElementById("modalSaldo");
     if (saldo < 0) {
-        saldoEl.innerText = Math.abs(saldo) + " tickets en deuda";
-        saldoEl.className = "font-bold text-red-600 text-xl";
+        saldoEl.innerText = Math.abs(saldo) + " en deuda";
+        saldoEl.className = "text-2xl font-bold mt-1 text-red-600";
     } else {
-        saldoEl.innerText = saldo + " tickets a favor";
-        saldoEl.className = "font-bold text-blue-600 text-xl";
+        saldoEl.innerText = saldo + " a favor";
+        saldoEl.className = "text-2xl font-bold mt-1 text-brand-600";
     }
 
     document.getElementById("modalCobertura").innerText = formatearFechaCompleta(cobertura);
@@ -265,63 +304,84 @@ function cerrarModal() {
 async function ajustarTickets(accion) {
     var cantidad = parseInt(document.getElementById("inputTickets").value);
     if (!cantidad || cantidad <= 0) {
-        alert("Ingresa un numero valido mayor a 0.");
+        mostrarToast("Ingresa un numero valido mayor a 0", "error");
         return;
     }
-    if (accion === 'quitar') cantidad = -cantidad;
+    if (accion === "quitar") cantidad = -cantidad;
 
     var token = await obtenerToken();
     if (!token) return;
     await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tickets", {
-        method: "POST",
-        headers: authHeaders(token),
+        method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ cantidad: cantidad })
     });
     cerrarModal();
+    mostrarToast(accion === "agregar" ? "Tickets abonados correctamente" : "Tickets removidos correctamente", "success");
     cargarDashboard();
 }
 
 async function eliminarUsuario() {
-    if (!confirm('Estas seguro de eliminar a "' + usuarioActualNombre + '"? Se borraran todos sus tickets y excepciones.')) {
+    if (!confirm('Eliminar a "' + usuarioActualNombre + '"? Esta accion no se puede deshacer.')) return;
+    var token = await obtenerToken();
+    if (!token) return;
+    await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId, {
+        method: "DELETE", headers: { "Authorization": "Bearer " + token }
+    });
+    cerrarModal();
+    mostrarToast(usuarioActualNombre + " eliminado", "info");
+    cargarDashboard();
+}
+
+// === Modal: Nuevo Usuario ===
+
+function abrirModalNuevoUsuario() {
+    document.getElementById("inputNuevoNombre").value = "";
+    document.getElementById("modalNuevo").classList.remove("hidden");
+    setTimeout(function() { document.getElementById("inputNuevoNombre").focus(); }, 100);
+}
+
+function cerrarModalNuevo() {
+    document.getElementById("modalNuevo").classList.add("hidden");
+}
+
+async function crearUsuario() {
+    var nombre = document.getElementById("inputNuevoNombre").value.trim();
+    if (!nombre) {
+        mostrarToast("Escribe un nombre", "error");
         return;
     }
     var token = await obtenerToken();
     if (!token) return;
-    await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId, {
-        method: "DELETE",
-        headers: { "Authorization": "Bearer " + token }
+    await fetchConReintentos(API_URL + "/usuarios/", {
+        method: "POST", headers: authHeaders(token),
+        body: JSON.stringify({ nombre: nombre })
     });
-    cerrarModal();
+    cerrarModalNuevo();
+    mostrarToast(nombre + " agregado correctamente", "success");
     cargarDashboard();
 }
 
-async function abrirModalUsuarioNuevo() {
-    var nombre = prompt("Nombre de la nueva persona:");
-    if (nombre && nombre.trim() !== "") {
-        var token = await obtenerToken();
-        if (!token) return;
-        await fetchConReintentos(API_URL + "/usuarios/", {
-            method: "POST",
-            headers: authHeaders(token),
-            body: JSON.stringify({ nombre: nombre.trim() })
-        });
-        cargarDashboard();
+// Enter para crear usuario en el modal
+document.addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && !document.getElementById("modalNuevo").classList.contains("hidden")) {
+        crearUsuario();
     }
-}
+});
+
+// === Exportar Excel ===
 
 async function descargarExcel() {
     var token = await obtenerToken();
     if (!token) return;
-    var hoy = new Date().toISOString().split('T')[0];
+    var hoy = new Date().toISOString().split("T")[0];
 
-    mostrarCarga("Generando archivo Excel...");
+    mostrarToast("Generando archivo Excel...", "info");
 
     try {
         var res = await fetch(API_URL + "/exportar?fecha=" + hoy, {
             headers: { "Authorization": "Bearer " + token }
         });
-        ocultarCarga();
-        if (!res.ok) { alert("Error al exportar"); return; }
+        if (!res.ok) { mostrarToast("Error al exportar", "error"); return; }
         var blob = await res.blob();
         var url = URL.createObjectURL(blob);
         var a = document.createElement("a");
@@ -329,8 +389,8 @@ async function descargarExcel() {
         a.download = "comensales_" + hoy + ".xlsx";
         a.click();
         URL.revokeObjectURL(url);
+        mostrarToast("Archivo descargado", "success");
     } catch (err) {
-        ocultarCarga();
-        alert("Error de conexion al exportar. Intenta de nuevo.");
+        mostrarToast("Error de conexion al exportar", "error");
     }
 }

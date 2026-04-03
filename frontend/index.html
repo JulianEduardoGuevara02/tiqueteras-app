@@ -2,83 +2,188 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Gestion de Tiqueteras</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tiqueteras - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .toast-enter { animation: slideIn .3s ease-out; }
+        .toast-exit { animation: slideOut .3s ease-in forwards; }
+        @keyframes slideIn { from { transform: translateX(100%); opacity:0 } to { transform: translateX(0); opacity:1 } }
+        @keyframes slideOut { from { transform: translateX(0); opacity:1 } to { transform: translateX(100%); opacity:0 } }
+        .calendar-scroll::-webkit-scrollbar { height: 6px; }
+        .calendar-scroll::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }
+    </style>
 </head>
-<body class="bg-gray-50 p-8 font-sans">
+<body class="bg-gray-50 min-h-screen">
 
-    <div class="max-w-[95%] mx-auto space-y-6">
-        <div class="flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <h1 class="text-3xl font-bold text-gray-800">Tiqueteras de Alimentacion</h1>
-                <button onclick="cerrarSesion()" class="text-sm text-gray-500 hover:text-red-600 hover:underline" title="Cerrar sesion">Salir</button>
-            </div>
-            <div class="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-md text-center">
-                <span class="block text-sm">Comensales programados para hoy</span>
-                <span id="metricHoy" class="text-3xl font-bold">0</span>
-            </div>
-        </div>
-
-        <div class="flex justify-between items-center bg-white p-4 rounded-lg shadow-sm">
-            <div class="flex gap-4 w-1/2">
-                <input type="text" id="searchInput" placeholder="Filtrar por persona..." class="border p-2 rounded w-full outline-none focus:ring-2 focus:ring-blue-500">
-                <button onclick="abrirModalUsuarioNuevo()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 whitespace-nowrap">+ Nueva Persona</button>
-                <button onclick="descargarExcel()" class="bg-gray-800 text-white px-4 py-2 rounded hover:bg-gray-900 whitespace-nowrap">Exportar Hoy</button>
-            </div>
-            <div class="flex gap-3 text-xs text-gray-600">
-                <span class="flex items-center gap-1"><div class="w-3 h-3 bg-green-500 rounded-sm"></div> Pagado</span>
-                <span class="flex items-center gap-1"><div class="w-3 h-3 bg-orange-400 rounded-sm"></div> Fiado (Hoy)</span>
-                <span class="flex items-center gap-1"><div class="w-3 h-3 bg-gray-200 rounded-sm"></div> Sin cobertura</span>
-                <span class="flex items-center gap-1"><div class="w-3 h-3 bg-red-500 rounded-sm"></div> No come</span>
-                <span class="flex items-center gap-1"><div class="w-3 h-3 bg-red-700 rounded-sm"></div> Dia bloqueado</span>
-            </div>
-        </div>
-
-        <div id="loadingOverlay" class="hidden bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-            <div class="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-            <p id="loadingMsg" class="text-blue-700 font-medium">Conectando con el servidor...</p>
-            <p class="text-blue-500 text-xs mt-1">El servidor gratuito puede tardar hasta 60 segundos en despertar</p>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-sm overflow-x-auto border">
-            <table class="w-full text-sm text-left">
-                <thead id="calendarHead" class="text-xs text-gray-700 bg-gray-100 uppercase border-b">
-                    </thead>
-                <tbody id="calendarBody">
-                    </tbody>
-            </table>
-        </div>
-    </div>
-
-    <div id="modalPerfil" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50">
-        <div class="bg-white p-6 rounded-lg w-[440px] space-y-4 shadow-xl">
-            <div class="flex justify-between items-start">
-                <h2 id="modalNombre" class="text-2xl font-bold text-gray-800 border-b pb-2">Nombre</h2>
-                <button onclick="eliminarUsuario()" class="text-xs text-red-400 hover:text-red-600 hover:underline mt-1" title="Eliminar persona">Eliminar</button>
-            </div>
-
-            <div class="bg-gray-50 p-4 rounded border">
-                <p class="text-gray-700 text-lg">Balance: <span id="modalSaldo" class="font-bold">0</span></p>
-                <p class="text-gray-600 mt-2 text-sm">Proyeccion de cobertura:</p>
-                <p id="modalCobertura" class="font-bold text-gray-900 capitalize"></p>
-            </div>
-
-            <div>
-                <label class="block text-sm mb-1 font-medium text-gray-700">Ajustar Tickets:</label>
-                <input type="number" id="inputTickets" min="1" class="border p-2 w-full rounded focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ej: 5 (Positivo)">
-                <p class="text-xs text-gray-500 mt-1">Si la persona paga tickets presiona 'Abonar'. Si te equivocaste y quieres restarlos presiona 'Quitar'.</p>
-            </div>
-
-            <div class="flex flex-col gap-3 mt-4">
-                <div class="flex gap-2 w-full">
-                    <button onclick="ajustarTickets('agregar')" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors font-medium shadow text-center">Abonar Tickets</button>
-                    <button onclick="ajustarTickets('quitar')" class="flex-1 px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors font-medium text-center">Quitar error</button>
+    <!-- Header -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-30">
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-brand-600 rounded-xl flex items-center justify-center">
+                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
                 </div>
-                <button onclick="cerrarModal()" class="w-full px-4 py-2 text-gray-600 hover:bg-gray-200 rounded transition-colors text-center">Cancelar</button>
+                <div>
+                    <h1 class="text-lg font-bold text-gray-800 leading-tight">Tiqueteras</h1>
+                    <p class="text-[11px] text-gray-400 leading-tight hidden sm:block">Gestion de Alimentacion</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-3 sm:gap-4">
+                <!-- Metrica -->
+                <div class="bg-brand-50 border border-brand-100 px-4 py-2 rounded-xl text-center">
+                    <span class="block text-[10px] text-brand-600 font-medium uppercase tracking-wide">Hoy</span>
+                    <span id="metricHoy" class="text-2xl font-bold text-brand-700 leading-tight">0</span>
+                </div>
+                <button onclick="cerrarSesion()" class="text-gray-400 hover:text-red-500 transition-colors p-2 rounded-lg hover:bg-gray-100" title="Cerrar sesion">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 space-y-4">
+        <!-- Toolbar -->
+        <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+            <div class="flex gap-2 flex-1 min-w-0">
+                <div class="relative flex-1 max-w-xs">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Buscar persona..."
+                        class="w-full border border-gray-200 bg-white pl-10 pr-3 py-2 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors">
+                </div>
+                <button onclick="abrirModalNuevoUsuario()" class="inline-flex items-center gap-1.5 bg-brand-600 text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    <span class="hidden sm:inline">Nueva Persona</span>
+                </button>
+                <button onclick="descargarExcel()" class="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 active:scale-[0.97] transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <span class="hidden sm:inline">Exportar</span>
+                </button>
+            </div>
+
+            <!-- Leyenda compacta -->
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-green-500 rounded-sm inline-block"></span>Pagado</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-orange-400 rounded-sm inline-block"></span>Fiado</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-gray-200 rounded-sm inline-block border"></span>Sin cobertura</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-500 rounded-sm inline-block"></span>No come</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-700 rounded-sm inline-block"></span>Bloqueado</span>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingOverlay" class="hidden">
+            <div class="bg-white border border-gray-200 rounded-2xl p-10 text-center shadow-sm">
+                <div class="inline-block w-8 h-8 border-[3px] border-brand-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+                <p id="loadingMsg" class="text-gray-700 font-medium">Conectando con el servidor...</p>
+                <p class="text-gray-400 text-xs mt-1">El servidor gratuito puede tardar hasta 60 segundos en despertar</p>
+            </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="emptyState" class="hidden">
+            <div class="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm">
+                <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <p class="text-gray-500 font-medium">No hay personas registradas</p>
+                <p class="text-gray-400 text-sm mt-1">Agrega la primera persona para empezar</p>
+                <button onclick="abrirModalNuevoUsuario()" class="mt-4 inline-flex items-center gap-1.5 bg-brand-600 text-white px-5 py-2 rounded-xl text-sm font-medium hover:bg-brand-700 transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                    Nueva Persona
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabla calendario -->
+        <div id="tableContainer" class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="overflow-x-auto calendar-scroll">
+                <table class="w-full text-sm text-left">
+                    <thead id="calendarHead" class="text-[11px] text-gray-500 bg-gray-50 uppercase tracking-wider border-b"></thead>
+                    <tbody id="calendarBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal: Perfil de usuario -->
+    <div id="modalPerfil" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarModal()">
+        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h2 id="modalNombre" class="text-xl font-bold text-gray-800">Nombre</h2>
+                <button onclick="eliminarUsuario()" class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div class="flex gap-4">
+                    <div class="flex-1 bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                        <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium">Balance</p>
+                        <p id="modalSaldo" class="text-2xl font-bold mt-1">0</p>
+                    </div>
+                    <div class="flex-1 bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                        <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium">Cobertura hasta</p>
+                        <p id="modalCobertura" class="text-sm font-bold text-gray-800 mt-2 capitalize"></p>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Ajustar Tickets</label>
+                    <input type="number" id="inputTickets" min="1"
+                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors"
+                        placeholder="Cantidad de tickets">
+                    <p class="text-[11px] text-gray-400 mt-1.5">Abonar = la persona paga tickets. Quitar = corregir error.</p>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="ajustarTickets('agregar')" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm text-sm">Abonar</button>
+                    <button onclick="ajustarTickets('quitar')" class="flex-1 py-2.5 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 active:scale-[0.97] transition-all text-sm">Quitar</button>
+                </div>
+                <button onclick="cerrarModal()" class="w-full py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button>
             </div>
         </div>
     </div>
+
+    <!-- Modal: Nuevo usuario -->
+    <div id="modalNuevo" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarModalNuevo()">
+        <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100">
+                <h2 class="text-lg font-bold text-gray-800">Nueva Persona</h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Nombre completo</label>
+                    <input type="text" id="inputNuevoNombre"
+                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors"
+                        placeholder="Ej: Juan Perez">
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="crearUsuario()" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm text-sm">Agregar</button>
+                    <button onclick="cerrarModalNuevo()" class="flex-1 py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-[60] space-y-2 pointer-events-none"></div>
 
     <script src="app.js"></script>
 </body>

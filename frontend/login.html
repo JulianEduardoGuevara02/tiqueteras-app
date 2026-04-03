@@ -6,37 +6,58 @@
     <title>Iniciar Sesion - Tiqueteras</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50:'#eef2ff',100:'#e0e7ff',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3' }
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+<body class="bg-gradient-to-br from-brand-800 via-brand-700 to-brand-600 min-h-screen flex items-center justify-center p-4">
 
-    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-sm space-y-6">
-        <div class="text-center">
-            <h1 class="text-2xl font-bold text-gray-800">Tiqueteras</h1>
-            <p class="text-gray-500 text-sm mt-1">Gestion de Alimentacion</p>
+    <div class="w-full max-w-sm">
+        <!-- Logo / Branding -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-white/20 backdrop-blur rounded-2xl mb-4">
+                <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                        d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-white">Tiqueteras</h1>
+            <p class="text-brand-100 text-sm mt-1">Sistema de Gestion de Alimentacion</p>
         </div>
 
-        <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-700 text-sm p-3 rounded"></div>
+        <!-- Card de login -->
+        <div class="bg-white rounded-2xl shadow-2xl p-8 space-y-6">
+            <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-lg"></div>
 
-        <form id="loginForm" class="space-y-4">
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Correo electronico</label>
-                <input type="email" id="email" required autocomplete="email"
-                    class="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="correo@ejemplo.com">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Contrasena</label>
-                <input type="password" id="password" required autocomplete="current-password" minlength="6"
-                    class="w-full border border-gray-300 p-2.5 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Minimo 6 caracteres">
-            </div>
-            <button type="submit" id="btnSubmit"
-                class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                Iniciar Sesion
-            </button>
-        </form>
+            <form id="loginForm" class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Correo electronico</label>
+                    <input type="email" id="email" required autocomplete="email"
+                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white transition-colors"
+                        placeholder="correo@ejemplo.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Contrasena</label>
+                    <input type="password" id="password" required autocomplete="current-password" minlength="6"
+                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 focus:bg-white transition-colors"
+                        placeholder="Minimo 6 caracteres">
+                </div>
+                <button type="submit" id="btnSubmit"
+                    class="w-full bg-brand-600 text-white py-3 rounded-xl font-semibold hover:bg-brand-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-brand-600/30">
+                    Iniciar Sesion
+                </button>
+            </form>
 
-        <p class="text-center text-xs text-gray-400">Acceso solo para administradores autorizados</p>
+            <p class="text-center text-xs text-gray-400">Acceso restringido a administradores</p>
+        </div>
     </div>
 
     <script>
@@ -44,7 +65,6 @@
         const SUPABASE_ANON_KEY = "sb_publishable_ECw9E40Z7N5FbQ54LP9kgQ_mOMz_289";
         const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        // Si ya tiene sesion activa, redirigir al dashboard
         supabaseClient.auth.getSession().then(({ data: { session } }) => {
             if (session) window.location.href = "index.html";
         });
