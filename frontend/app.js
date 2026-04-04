@@ -14,6 +14,7 @@ var diasGlobales = [];
 // === Multi-sede ===
 var miPerfil = null;
 var sedeActual = null;
+var verInactivos = false;
 
 // === Toasts ===
 
@@ -219,6 +220,22 @@ function cambiarSede(nuevoSedeId) {
     cargarDashboard();
 }
 
+function toggleVerInactivos() {
+    verInactivos = !verInactivos;
+    var btn = document.getElementById("btnVerInactivos");
+    var txt = document.getElementById("txtVerInactivos");
+    if (verInactivos) {
+        btn.classList.remove("bg-white", "text-gray-700");
+        btn.classList.add("bg-orange-50", "text-orange-600", "border-orange-200");
+        txt.textContent = "Ocultar inactivos";
+    } else {
+        btn.classList.remove("bg-orange-50", "text-orange-600", "border-orange-200");
+        btn.classList.add("bg-white", "text-gray-700");
+        txt.textContent = "Ver inactivos";
+    }
+    cargarDashboard();
+}
+
 // === Dashboard ===
 
 async function cargarDashboard() {
@@ -227,8 +244,8 @@ async function cargarDashboard() {
 
     mostrarCarga("Cargando datos del servidor...");
 
-    var url = API_URL + "/dashboard";
-    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var url = API_URL + "/dashboard?incluir_inactivos=" + (verInactivos ? 1 : 0);
+    if (sedeActual) url += "&sede_id=" + sedeActual;
 
     var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
 
@@ -267,10 +284,10 @@ function renderizarCalendario(data) {
 
         htmlHead += '<th class="p-1.5 text-center min-w-[70px] border-l border-gray-100 cursor-pointer select-none ' + bg + " " + todayRing + '"'
             + ' onclick="toggleDiaGlobal(\'' + fecha + '\')"'
-            + ' title="Click para bloquear/desbloquear">'
+            + ' title="Click para marcar/desmarcar festivo">'
             + '<div class="capitalize text-[11px] font-medium ' + text + '">' + nombreDiaCorto(fecha) + '</div>'
             + '<div class="text-[10px] text-gray-400 mt-0.5">' + formatearFechaCorta(fecha) + '</div>'
-            + (isGlobal ? '<div class="text-[8px] text-red-500 font-bold mt-0.5">BLOQ</div>' : '')
+            + (isGlobal ? '<div class="text-[8px] text-red-500 font-bold mt-0.5">FESTIVO</div>' : '')
             + '</th>';
     });
     htmlHead += '</tr>';
@@ -279,15 +296,18 @@ function renderizarCalendario(data) {
     var htmlBody = "";
     data.usuarios.forEach(function(user) {
         var nombreSafe = escaparHtml(user.nombre);
+        var esInactivo = user.activo === 0;
         var saldoColor = user.saldo_actual < 0 ? "text-red-500" : "text-brand-600";
         var saldoSign = user.saldo_actual < 0 ? "" : "+";
         var saldoBadge = '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
+        var inactivoBadge = esInactivo ? '<span class="text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Inactivo</span>' : '';
+        var rowOpacity = esInactivo ? "opacity-50" : "";
 
-        htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors" data-nombre="' + nombreSafe.toLowerCase() + '">'
+        htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors ' + rowOpacity + '" data-nombre="' + nombreSafe.toLowerCase() + '">'
             + '<td class="p-2.5 font-medium cursor-pointer text-gray-700 hover:text-brand-600 sticky left-0 bg-white z-10 border-r border-gray-200 transition-colors"'
-            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\')">'
+            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ')">'
             + '<div class="flex items-center">'
-            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge
+            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge
             + '</div></td>';
 
         user.calendario.forEach(function(dia) {
@@ -353,10 +373,15 @@ async function toggleExcepcion(userId, fecha) {
 
 // === Modal: Perfil ===
 
-function abrirModalPerfil(id, nombre, saldo, cobertura) {
+function abrirModalPerfil(id, nombre, saldo, cobertura, activo) {
     usuarioActualId = id;
     usuarioActualNombre = nombre;
     document.getElementById("modalNombre").innerText = nombre;
+    var btnToggle = document.getElementById("btnToggleActivo");
+    btnToggle.textContent = activo ? "Desactivar" : "Activar";
+    btnToggle.className = activo
+        ? "text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded hover:bg-orange-50"
+        : "text-xs text-green-600 hover:text-green-700 transition-colors px-2 py-1 rounded hover:bg-green-50";
 
     var saldoEl = document.getElementById("modalSaldo");
     if (saldo < 0) {
@@ -392,6 +417,19 @@ async function ajustarTickets(accion) {
     });
     cerrarModal();
     mostrarToast(accion === "agregar" ? "Tickets abonados correctamente" : "Tickets removidos correctamente", "success");
+    cargarDashboard();
+}
+
+async function toggleActivoUsuario() {
+    var token = await obtenerToken();
+    if (!token) return;
+    var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/toggle-activo", {
+        method: "PUT", headers: { "Authorization": "Bearer " + token }
+    });
+    if (!res) return;
+    var data = await res.json();
+    cerrarModal();
+    mostrarToast(usuarioActualNombre + (data.activo ? " activado" : " desactivado"), "success");
     cargarDashboard();
 }
 
@@ -498,7 +536,7 @@ async function cargarHistorial() {
         var accionColor = "text-gray-600 bg-gray-100";
         if (log.accion.indexOf("Crear") !== -1 || log.accion.indexOf("Abonar") !== -1) accionColor = "text-green-700 bg-green-50";
         if (log.accion.indexOf("Eliminar") !== -1 || log.accion.indexOf("Quitar") !== -1) accionColor = "text-red-700 bg-red-50";
-        if (log.accion.indexOf("Bloquear") !== -1) accionColor = "text-orange-700 bg-orange-50";
+        if (log.accion.indexOf("festivo") !== -1 || log.accion.indexOf("Bloquear") !== -1) accionColor = "text-orange-700 bg-orange-50";
         if (log.accion.indexOf("Exportar") !== -1) accionColor = "text-blue-700 bg-blue-50";
         if (log.accion.indexOf("Ajustar") !== -1) accionColor = "text-brand-700 bg-brand-50";
 

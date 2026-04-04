@@ -104,6 +104,10 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                     <span class="hidden sm:inline">Nueva Persona</span>
                 </button>
+                <button onclick="toggleVerInactivos()" id="btnVerInactivos" class="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 active:scale-[0.97] transition-all">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <span class="hidden sm:inline" id="txtVerInactivos">Ver inactivos</span>
+                </button>
                 <button onclick="descargarExcel()" class="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 active:scale-[0.97] transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="hidden sm:inline">Exportar</span>
@@ -115,7 +119,7 @@
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-orange-400 rounded-sm inline-block"></span>Fiado</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-gray-200 rounded-sm inline-block border"></span>Sin cobertura</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-500 rounded-sm inline-block"></span>No come</span>
-                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-700 rounded-sm inline-block"></span>Bloqueado</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-700 rounded-sm inline-block"></span>Festivo</span>
             </div>
         </div>
 
@@ -159,7 +163,10 @@
         <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
                 <h2 id="modalNombre" class="text-xl font-bold text-gray-800">Nombre</h2>
-                <button onclick="eliminarUsuario()" class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
+                <div class="flex gap-2">
+                    <button onclick="toggleActivoUsuario()" id="btnToggleActivo" class="text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded hover:bg-orange-50">Desactivar</button>
+                    <button onclick="eliminarUsuario()" class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
+                </div>
             </div>
             <div class="p-6 space-y-5">
                 <div class="flex gap-4">

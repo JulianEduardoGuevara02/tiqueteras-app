@@ -229,6 +229,7 @@ def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(g
 @app.get("/dashboard")
 def obtener_dashboard(
     sede_id: Optional[int] = Query(default=None),
+    incluir_inactivos: int = Query(default=0),
     db: Session = Depends(get_db),
     auth_user: dict = Depends(verificar_token)
 ):
@@ -239,6 +240,8 @@ def obtener_dashboard(
         joinedload(Usuario.saldos),
         joinedload(Usuario.excepciones)
     )
+    if not incluir_inactivos:
+        query_usuarios = query_usuarios.filter(Usuario.activo == 1)
     if sid is not None:
         query_usuarios = query_usuarios.filter(Usuario.sede_id == sid)
     usuarios = query_usuarios.all()
@@ -267,6 +270,7 @@ def obtener_dashboard(
         resultado.append({
             "id": u.id,
             "nombre": u.nombre,
+            "activo": u.activo,
             "saldo_actual": proyeccion["saldo_actual"],
             "fecha_cobertura": proyeccion["fecha_cobertura"],
             "calendario": proyeccion["calendario"]
@@ -333,11 +337,11 @@ def toggle_dia_global(req: DiaGlobalToggle, sede_id: Optional[int] = Query(defau
             Excepcion.usuario_id.in_(usuarios_sede)
         ).delete(synchronize_session=False)
         db.delete(existente)
-        registrar_log(db, admin.email, "Desbloquear dia", req.fecha, sid)
+        registrar_log(db, admin.email, "Quitar festivo", req.fecha, sid)
         activo = False
     else:
         db.add(DiaGlobal(fecha=fecha_obj, sede_id=sid))
-        registrar_log(db, admin.email, "Bloquear dia", req.fecha, sid)
+        registrar_log(db, admin.email, "Marcar festivo", req.fecha, sid)
         activo = True
 
     db.commit()
@@ -358,6 +362,19 @@ def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), auth_user: 
     registrar_log(db, admin.email, "Eliminar persona", nombre, sid)
     db.commit()
     return {"message": "Usuario eliminado"}
+
+@app.put("/usuarios/{usuario_id}/toggle-activo")
+def toggle_activo_usuario(usuario_id: int, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    verificar_acceso_usuario(admin, usuario)
+    usuario.activo = 0 if usuario.activo == 1 else 1
+    estado = "Activar" if usuario.activo == 1 else "Desactivar"
+    registrar_log(db, admin.email, f"{estado} persona", usuario.nombre, usuario.sede_id)
+    db.commit()
+    return {"message": f"Usuario {'activado' if usuario.activo == 1 else 'desactivado'}", "activo": usuario.activo}
 
 @app.get("/auditoria")
 def obtener_auditoria(
@@ -400,7 +417,7 @@ def exportar_excel(fecha: str, sede_id: Optional[int] = Query(default=None), db:
     query_usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
         joinedload(Usuario.excepciones)
-    )
+    ).filter(Usuario.activo == 1)
     if sid is not None:
         query_usuarios = query_usuarios.filter(Usuario.sede_id == sid)
     usuarios = query_usuarios.all()

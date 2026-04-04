@@ -46,6 +46,7 @@ class Usuario(Base):
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, index=True)
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
+    activo = Column(Integer, default=1)
     saldos = relationship("Saldo", back_populates="usuario")
     excepciones = relationship("Excepcion", back_populates="usuario")
 
@@ -112,6 +113,10 @@ def migrar_sedes():
             conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_diaglobal_fecha_sede ON dias_globales(fecha, sede_id)"))
         except Exception:
             conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1"))
+        except Exception:
+            conn.rollback()
         conn.commit()
         logger.info("Migracion multi-sede completada")
 
@@ -135,9 +140,24 @@ def bootstrap_superadmin():
         conn.commit()
         logger.info("Bootstrap completado")
 
-# Ejecutar migracion y bootstrap al importar
+def migrar_activo_usuario():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT activo FROM usuarios LIMIT 1"))
+            return
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1"))
+            conn.commit()
+            logger.info("Migracion: columna activo agregada a usuarios")
+        except Exception:
+            conn.rollback()
+
+# Ejecutar migraciones y bootstrap al importar
 try:
     migrar_sedes()
+    migrar_activo_usuario()
     bootstrap_superadmin()
 except Exception as e:
     logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")
