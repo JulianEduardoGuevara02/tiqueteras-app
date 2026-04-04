@@ -314,25 +314,29 @@ function renderizarCalendario(data) {
             var inicial = inicialDia(dia.fecha);
             var todayBg = dia.es_hoy ? "bg-brand-50/50" : "";
 
-            var colorClass = "bg-white border border-gray-100";
+            var colorClass = "bg-gray-100 border border-gray-200";
             var textColor = "text-gray-300";
 
-            if (dia.estado === "past_covered") { colorClass = "bg-green-100 border border-green-200"; textColor = "text-green-400"; }
-            if (dia.estado === "past_fiado") { colorClass = "bg-orange-100 border border-orange-200"; textColor = "text-orange-400"; }
-            if (dia.estado === "past_absence") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
-            if (dia.estado === "past_global_blocked") { colorClass = "bg-red-100 border border-red-200"; textColor = "text-red-300"; }
+            if (!esInactivo) {
+                colorClass = "bg-white border border-gray-100";
 
-            if (dia.estado === "covered") { colorClass = "bg-green-500 border border-green-600"; textColor = "text-white"; }
-            if (dia.estado === "fiado") { colorClass = "bg-orange-400 border border-orange-500"; textColor = "text-white"; }
-            if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
-            if (dia.estado === "absence") { colorClass = "bg-red-500 border border-red-600"; textColor = "text-white"; }
-            if (dia.estado === "sunday_blocked") { colorClass = "bg-gray-50 border border-gray-100"; textColor = "text-gray-300"; }
-            if (dia.estado === "global_blocked") { colorClass = "bg-red-600 border border-red-700"; textColor = "text-white"; }
+                if (dia.estado === "past_covered") { colorClass = "bg-green-100 border border-green-200"; textColor = "text-green-400"; }
+                if (dia.estado === "past_fiado") { colorClass = "bg-orange-100 border border-orange-200"; textColor = "text-orange-400"; }
+                if (dia.estado === "past_absence") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
+                if (dia.estado === "past_global_blocked") { colorClass = "bg-red-100 border border-red-200"; textColor = "text-red-300"; }
+
+                if (dia.estado === "covered") { colorClass = "bg-green-500 border border-green-600"; textColor = "text-white"; }
+                if (dia.estado === "fiado") { colorClass = "bg-orange-400 border border-orange-500"; textColor = "text-white"; }
+                if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
+                if (dia.estado === "absence") { colorClass = "bg-red-500 border border-red-600"; textColor = "text-white"; }
+                if (dia.estado === "sunday_blocked") { colorClass = "bg-gray-50 border border-gray-100"; textColor = "text-gray-300"; }
+                if (dia.estado === "global_blocked") { colorClass = "bg-red-600 border border-red-700"; textColor = "text-white"; }
+            }
 
             htmlBody += '<td class="p-1 min-w-[70px] border-l border-gray-100 ' + todayBg + '">'
-                + '<div onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\')"'
-                + ' class="h-9 w-full rounded-lg ' + colorClass + ' cursor-pointer transition-all hover:scale-105 hover:shadow-sm flex justify-center items-center text-xs font-medium ' + textColor + '"'
-                + ' title="' + dia.fecha + ' - ' + dia.estado + '">'
+                + '<div' + (esInactivo ? '' : ' onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\')"')
+                + ' class="h-9 w-full rounded-lg ' + colorClass + (esInactivo ? '' : ' cursor-pointer hover:scale-105 hover:shadow-sm') + ' transition-all flex justify-center items-center text-xs font-medium ' + textColor + '"'
+                + ' title="' + dia.fecha + (esInactivo ? ' - Inactivo' : ' - ' + dia.estado) + '">'
                 + inicial + '</div></td>';
         });
         htmlBody += '</tr>';
