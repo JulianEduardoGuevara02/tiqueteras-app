@@ -366,7 +366,9 @@ def obtener_auditoria(
     sid = obtener_sede_id(admin, sede_id)
 
     query = db.query(LogAuditoria)
-    if sid is not None:
+    if admin.rol != "superadmin":
+        query = query.filter(LogAuditoria.sede_id == admin.sede_id)
+    elif sid is not None:
         query = query.filter((LogAuditoria.sede_id == sid) | (LogAuditoria.sede_id == None))
 
     total = query.count()
