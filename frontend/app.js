@@ -11,6 +11,10 @@ var usuarioActualId = null;
 var usuarioActualNombre = "";
 var diasGlobales = [];
 
+// === Multi-sede ===
+var miPerfil = null;
+var sedeActual = null;
+
 // === Toasts ===
 
 function mostrarToast(mensaje, tipo) {
@@ -82,7 +86,7 @@ supabaseClient.auth.getSession().then(function(result) {
     if (!result.data.session) {
         window.location.href = "login.html";
     } else {
-        cargarDashboard();
+        cargarPerfil();
     }
 });
 
@@ -96,6 +100,9 @@ async function fetchConReintentos(url, opciones, maxIntentos) {
             if (res.status === 401) {
                 await cerrarSesion();
                 return null;
+            }
+            if (res.status === 403) {
+                return res;
             }
             if (!res.ok) throw new Error("HTTP " + res.status);
             return res;
@@ -144,6 +151,74 @@ function formatearFechaCompleta(fechaStr) {
     return dateObj.toLocaleDateString("es-CO", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
+// === Perfil y sede ===
+
+async function cargarPerfil() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    mostrarCarga("Verificando permisos...");
+
+    var res = await fetchConReintentos(
+        API_URL + "/mi-perfil",
+        { headers: { "Authorization": "Bearer " + token } }
+    );
+
+    if (!res) return;
+
+    if (res.status === 403) {
+        ocultarCarga();
+        document.getElementById("mainContent").classList.add("hidden");
+        document.getElementById("sinAcceso").classList.remove("hidden");
+        return;
+    }
+
+    miPerfil = await res.json();
+
+    if (miPerfil.rol === "superadmin") {
+        sedeActual = miPerfil.sedes.length > 0 ? miPerfil.sedes[0].id : null;
+    } else {
+        sedeActual = miPerfil.sede_id;
+    }
+
+    actualizarUISegunPerfil();
+    cargarDashboard();
+}
+
+function actualizarUISegunPerfil() {
+    var sedeBadge = document.getElementById("sedeBadge");
+    var sedeSelector = document.getElementById("sedeSelector");
+    var btnConfig = document.getElementById("btnConfig");
+
+    if (miPerfil.rol === "superadmin") {
+        // Mostrar selector de sedes
+        sedeBadge.classList.add("hidden");
+        sedeSelector.classList.remove("hidden");
+        btnConfig.classList.remove("hidden");
+
+        sedeSelector.innerHTML = "";
+        miPerfil.sedes.forEach(function(s) {
+            if (!s.activa) return;
+            var opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = s.nombre;
+            if (s.id === sedeActual) opt.selected = true;
+            sedeSelector.appendChild(opt);
+        });
+    } else {
+        // Mostrar badge estatico
+        sedeSelector.classList.add("hidden");
+        btnConfig.classList.add("hidden");
+        sedeBadge.classList.remove("hidden");
+        sedeBadge.textContent = miPerfil.sede_nombre || "Sin sede";
+    }
+}
+
+function cambiarSede(nuevoSedeId) {
+    sedeActual = parseInt(nuevoSedeId);
+    cargarDashboard();
+}
+
 // === Dashboard ===
 
 async function cargarDashboard() {
@@ -152,13 +227,13 @@ async function cargarDashboard() {
 
     mostrarCarga("Cargando datos del servidor...");
 
-    var res = await fetchConReintentos(
-        API_URL + "/dashboard",
-        { headers: { "Authorization": "Bearer " + token } }
-    );
+    var url = API_URL + "/dashboard";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+
+    var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
 
     ocultarCarga();
-    if (!res) return;
+    if (!res || res.status === 403) return;
 
     var data = await res.json();
     diasGlobales = data.dias_globales || [];
@@ -222,13 +297,11 @@ function renderizarCalendario(data) {
             var colorClass = "bg-white border border-gray-100";
             var textColor = "text-gray-300";
 
-            // Pasados
             if (dia.estado === "past_covered") { colorClass = "bg-green-100 border border-green-200"; textColor = "text-green-400"; }
             if (dia.estado === "past_fiado") { colorClass = "bg-orange-100 border border-orange-200"; textColor = "text-orange-400"; }
             if (dia.estado === "past_absence") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
             if (dia.estado === "past_global_blocked") { colorClass = "bg-red-100 border border-red-200"; textColor = "text-red-300"; }
 
-            // Hoy y futuro
             if (dia.estado === "covered") { colorClass = "bg-green-500 border border-green-600"; textColor = "text-white"; }
             if (dia.estado === "fiado") { colorClass = "bg-orange-400 border border-orange-500"; textColor = "text-white"; }
             if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
@@ -259,7 +332,9 @@ document.getElementById("searchInput").addEventListener("input", function(e) {
 async function toggleDiaGlobal(fecha) {
     var token = await obtenerToken();
     if (!token) return;
-    await fetchConReintentos(API_URL + "/dias-globales/", {
+    var url = API_URL + "/dias-globales/";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    await fetchConReintentos(url, {
         method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
@@ -352,9 +427,11 @@ async function crearUsuario() {
     }
     var token = await obtenerToken();
     if (!token) return;
+    var body = { nombre: nombre };
+    if (sedeActual) body.sede_id = sedeActual;
     await fetchConReintentos(API_URL + "/usuarios/", {
         method: "POST", headers: authHeaders(token),
-        body: JSON.stringify({ nombre: nombre })
+        body: JSON.stringify(body)
     });
     cerrarModalNuevo();
     mostrarToast(nombre + " agregado correctamente", "success");
@@ -393,10 +470,10 @@ async function cargarHistorial() {
     document.getElementById("historialVacio").classList.add("hidden");
     document.getElementById("historialPaginacion").classList.add("hidden");
 
-    var res = await fetchConReintentos(
-        API_URL + "/auditoria?limite=" + HISTORIAL_LIMITE + "&offset=" + historialOffset,
-        { headers: { "Authorization": "Bearer " + token } }
-    );
+    var url = API_URL + "/auditoria?limite=" + HISTORIAL_LIMITE + "&offset=" + historialOffset;
+    if (sedeActual) url += "&sede_id=" + sedeActual;
+
+    var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
 
     document.getElementById("historialLoading").classList.add("hidden");
     if (!res) return;
@@ -431,7 +508,6 @@ async function cargarHistorial() {
     tbody.innerHTML = html;
     document.getElementById("historialTabla").classList.remove("hidden");
 
-    // Paginacion
     document.getElementById("historialPaginacion").classList.remove("hidden");
     var desde = historialOffset + 1;
     var hasta = Math.min(historialOffset + HISTORIAL_LIMITE, historialTotal);
@@ -460,19 +536,233 @@ async function descargarExcel() {
     mostrarToast("Generando archivo Excel...", "info");
 
     try {
-        var res = await fetch(API_URL + "/exportar?fecha=" + hoy, {
+        var url = API_URL + "/exportar?fecha=" + hoy;
+        if (sedeActual) url += "&sede_id=" + sedeActual;
+        var res = await fetch(url, {
             headers: { "Authorization": "Bearer " + token }
         });
         if (!res.ok) { mostrarToast("Error al exportar", "error"); return; }
         var blob = await res.blob();
-        var url = URL.createObjectURL(blob);
+        var blobUrl = URL.createObjectURL(blob);
         var a = document.createElement("a");
-        a.href = url;
+        a.href = blobUrl;
         a.download = "comensales_" + hoy + ".xlsx";
         a.click();
-        URL.revokeObjectURL(url);
+        URL.revokeObjectURL(blobUrl);
         mostrarToast("Archivo descargado", "success");
     } catch (err) {
         mostrarToast("Error de conexion al exportar", "error");
     }
+}
+
+// === Configuracion (superadmin) ===
+
+function abrirConfig() {
+    document.getElementById("modalConfig").classList.remove("hidden");
+    configTab("sedes");
+}
+
+function cerrarConfig() {
+    document.getElementById("modalConfig").classList.add("hidden");
+}
+
+function configTab(tab) {
+    var tabSedes = document.getElementById("tabSedes");
+    var tabAdmins = document.getElementById("tabAdmins");
+    var panelSedes = document.getElementById("panelSedes");
+    var panelAdmins = document.getElementById("panelAdmins");
+
+    if (tab === "sedes") {
+        tabSedes.className = tabSedes.className.replace("tab-inactive", "tab-active");
+        tabAdmins.className = tabAdmins.className.replace("tab-active", "tab-inactive");
+        panelSedes.classList.remove("hidden");
+        panelAdmins.classList.add("hidden");
+        cargarConfigSedes();
+    } else {
+        tabAdmins.className = tabAdmins.className.replace("tab-inactive", "tab-active");
+        tabSedes.className = tabSedes.className.replace("tab-active", "tab-inactive");
+        panelAdmins.classList.remove("hidden");
+        panelSedes.classList.add("hidden");
+        cargarConfigAdmins();
+    }
+}
+
+// --- Sedes CRUD ---
+
+async function cargarConfigSedes() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var res = await fetchConReintentos(API_URL + "/admin/sedes", { headers: { "Authorization": "Bearer " + token } });
+    if (!res || res.status === 403) return;
+
+    var sedes = await res.json();
+    var tbody = document.getElementById("configSedesBody");
+    var html = "";
+
+    sedes.forEach(function(s) {
+        var estadoClass = s.activa ? "text-green-700 bg-green-50" : "text-gray-400 bg-gray-100";
+        var estadoText = s.activa ? "Activa" : "Inactiva";
+        var btnText = s.activa ? "Desactivar" : "Activar";
+        var btnClass = s.activa ? "text-red-500 hover:bg-red-50" : "text-green-600 hover:bg-green-50";
+
+        html += '<tr class="border-b border-gray-50">'
+            + '<td class="py-3 text-gray-700 font-medium">' + escaparHtml(s.nombre) + '</td>'
+            + '<td class="py-3"><span class="px-2 py-0.5 rounded-md text-[11px] font-medium ' + estadoClass + '">' + estadoText + '</span></td>'
+            + '<td class="py-3 text-right">'
+            + '<button onclick="toggleSede(' + s.id + ',' + (s.activa ? 0 : 1) + ')" class="text-xs px-2 py-1 rounded ' + btnClass + ' transition-colors">' + btnText + '</button>'
+            + '</td></tr>';
+    });
+
+    tbody.innerHTML = html;
+}
+
+async function crearSede() {
+    var input = document.getElementById("inputNuevaSede");
+    var nombre = input.value.trim();
+    if (!nombre) {
+        mostrarToast("Escribe el nombre de la sede", "error");
+        return;
+    }
+
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var res = await fetchConReintentos(API_URL + "/admin/sedes", {
+        method: "POST", headers: authHeaders(token),
+        body: JSON.stringify({ nombre: nombre })
+    });
+
+    if (!res) return;
+    if (res.status === 400) {
+        var err = await res.json();
+        mostrarToast(err.detail || "Error al crear sede", "error");
+        return;
+    }
+
+    input.value = "";
+    mostrarToast("Sede creada correctamente", "success");
+    cargarConfigSedes();
+    // Actualizar perfil para refrescar lista de sedes en el selector
+    await recargarPerfilYSelector();
+}
+
+async function toggleSede(sedeId, nuevoEstado) {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    await fetchConReintentos(API_URL + "/admin/sedes/" + sedeId, {
+        method: "PUT", headers: authHeaders(token),
+        body: JSON.stringify({ activa: nuevoEstado })
+    });
+
+    mostrarToast(nuevoEstado ? "Sede activada" : "Sede desactivada", "success");
+    cargarConfigSedes();
+    await recargarPerfilYSelector();
+}
+
+async function recargarPerfilYSelector() {
+    var token = await obtenerToken();
+    if (!token) return;
+    var res = await fetchConReintentos(API_URL + "/mi-perfil", { headers: { "Authorization": "Bearer " + token } });
+    if (!res || res.status === 403) return;
+    miPerfil = await res.json();
+    actualizarUISegunPerfil();
+}
+
+// --- Admins CRUD ---
+
+async function cargarConfigAdmins() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var res = await fetchConReintentos(API_URL + "/admin/admins", { headers: { "Authorization": "Bearer " + token } });
+    if (!res || res.status === 403) return;
+
+    var admins = await res.json();
+
+    // Poblar selector de sedes para el formulario de nuevo admin
+    var selectSede = document.getElementById("selectAdminSede");
+    selectSede.innerHTML = '<option value="">Sin sede (superadmin)</option>';
+    if (miPerfil && miPerfil.sedes) {
+        miPerfil.sedes.forEach(function(s) {
+            var opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = s.nombre;
+            selectSede.appendChild(opt);
+        });
+    }
+
+    var tbody = document.getElementById("configAdminsBody");
+    var html = "";
+
+    admins.forEach(function(a) {
+        var rolClass = a.rol === "superadmin" ? "text-brand-700 bg-brand-50" : "text-gray-600 bg-gray-100";
+        var sedeText = a.sede_nombre || "Todas (superadmin)";
+
+        html += '<tr class="border-b border-gray-50">'
+            + '<td class="py-3 text-gray-700 text-xs">' + escaparHtml(a.email) + '</td>'
+            + '<td class="py-3 text-gray-600 text-xs">' + escaparHtml(sedeText) + '</td>'
+            + '<td class="py-3"><span class="px-2 py-0.5 rounded-md text-[11px] font-medium ' + rolClass + '">' + escaparHtml(a.rol) + '</span></td>'
+            + '<td class="py-3 text-right">'
+            + '<button onclick="eliminarAdmin(' + a.id + ',\'' + escaparHtml(a.email).replace(/'/g, "\\'") + '\')" class="text-xs px-2 py-1 rounded text-red-500 hover:bg-red-50 transition-colors">Eliminar</button>'
+            + '</td></tr>';
+    });
+
+    tbody.innerHTML = html;
+}
+
+async function crearAdmin() {
+    var email = document.getElementById("inputAdminEmail").value.trim();
+    if (!email) {
+        mostrarToast("Escribe el email del admin", "error");
+        return;
+    }
+
+    var selectSede = document.getElementById("selectAdminSede");
+    var sedeId = selectSede.value ? parseInt(selectSede.value) : null;
+    var rol = document.getElementById("selectAdminRol").value;
+
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var body = { email: email, rol: rol };
+    if (sedeId) body.sede_id = sedeId;
+
+    var res = await fetchConReintentos(API_URL + "/admin/admins", {
+        method: "POST", headers: authHeaders(token),
+        body: JSON.stringify(body)
+    });
+
+    if (!res) return;
+    if (res.status === 400) {
+        var err = await res.json();
+        mostrarToast(err.detail || "Error al crear admin", "error");
+        return;
+    }
+
+    document.getElementById("inputAdminEmail").value = "";
+    mostrarToast("Admin agregado correctamente", "success");
+    cargarConfigAdmins();
+}
+
+async function eliminarAdmin(adminId, email) {
+    if (!confirm('Quitar acceso a "' + email + '"?')) return;
+
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var res = await fetchConReintentos(API_URL + "/admin/admins/" + adminId, {
+        method: "DELETE", headers: { "Authorization": "Bearer " + token }
+    });
+
+    if (!res) return;
+    if (res.status === 400) {
+        var err = await res.json();
+        mostrarToast(err.detail || "Error al eliminar", "error");
+        return;
+    }
+
+    mostrarToast("Acceso removido", "success");
+    cargarConfigAdmins();
 }

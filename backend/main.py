@@ -6,9 +6,10 @@ from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from datetime import date, datetime, timedelta
 from pydantic import BaseModel
+from typing import Optional
 import io
 import openpyxl
-from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria
+from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria, Sede, AdminSede
 from auth import verificar_token
 
 app = FastAPI(title="API Tiqueteras")
@@ -27,13 +28,58 @@ def get_db():
     try: yield db
     finally: db.close()
 
-def registrar_log(db: Session, email: str, accion: str, detalle: str):
-    db.add(LogAuditoria(email=email, accion=accion, detalle=detalle))
+# === Autorizacion por sede ===
 
-class UsuarioCreate(BaseModel): nombre: str
+def obtener_admin_sede(db: Session, email: str) -> AdminSede:
+    admin = db.query(AdminSede).filter(AdminSede.email == email).first()
+    if not admin:
+        raise HTTPException(status_code=403, detail="No tienes acceso. Contacta al superadmin.")
+    return admin
+
+def obtener_sede_id(admin: AdminSede, sede_id_param: Optional[int] = None) -> Optional[int]:
+    """Determina el sede_id a usar: admin usa su sede, superadmin usa el parametro."""
+    if admin.rol == "superadmin":
+        return sede_id_param
+    return admin.sede_id
+
+def verificar_acceso_usuario(admin: AdminSede, usuario: Usuario):
+    """Verifica que el admin tiene acceso al usuario."""
+    if admin.rol == "superadmin":
+        return
+    if usuario.sede_id != admin.sede_id:
+        raise HTTPException(status_code=403, detail="No tienes acceso a este usuario")
+
+def verificar_superadmin(admin: AdminSede):
+    if admin.rol != "superadmin":
+        raise HTTPException(status_code=403, detail="Acceso solo para superadmin")
+
+def registrar_log(db: Session, email: str, accion: str, detalle: str, sede_id: Optional[int] = None):
+    db.add(LogAuditoria(email=email, accion=accion, detalle=detalle, sede_id=sede_id))
+
+# === Pydantic models ===
+
+class UsuarioCreate(BaseModel):
+    nombre: str
+    sede_id: Optional[int] = None
+
 class SaldoCreate(BaseModel): cantidad: int
 class ExcepcionToggle(BaseModel): fecha: str
 class DiaGlobalToggle(BaseModel): fecha: str
+class SedeCreate(BaseModel): nombre: str
+class SedeUpdate(BaseModel):
+    nombre: Optional[str] = None
+    activa: Optional[int] = None
+
+class AdminSedeCreate(BaseModel):
+    email: str
+    sede_id: Optional[int] = None
+    rol: str = "admin"
+
+class AdminSedeUpdate(BaseModel):
+    sede_id: Optional[int] = None
+    rol: Optional[str] = None
+
+# === Proyeccion (sin cambios) ===
 
 def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dias_a_mostrar: int, dias_globales: set):
     saldos = usuario.saldos
@@ -128,36 +174,78 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         "fecha_cobertura": texto_cobertura
     }
 
+# === Endpoint: Mi perfil ===
+
+@app.get("/mi-perfil")
+def mi_perfil(db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    email = auth_user.get("email", "")
+    admin = obtener_admin_sede(db, email)
+    resultado = {
+        "email": admin.email,
+        "rol": admin.rol,
+        "sede_id": admin.sede_id,
+        "sede_nombre": None,
+        "sedes": []
+    }
+    if admin.sede_id:
+        sede = db.query(Sede).filter(Sede.id == admin.sede_id).first()
+        resultado["sede_nombre"] = sede.nombre if sede else None
+    if admin.rol == "superadmin":
+        resultado["sedes"] = [
+            {"id": s.id, "nombre": s.nombre, "activa": s.activa}
+            for s in db.query(Sede).order_by(Sede.id).all()
+        ]
+    return resultado
+
+# === Endpoints: CRUD de operaciones (filtrado por sede) ===
+
 @app.post("/usuarios/")
 def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
-    db.add(Usuario(nombre=user.nombre))
-    registrar_log(db, auth_user.get("email", "?"), "Crear persona", user.nombre)
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sede_id = obtener_sede_id(admin, user.sede_id)
+    db.add(Usuario(nombre=user.nombre, sede_id=sede_id))
+    registrar_log(db, admin.email, "Crear persona", user.nombre, sede_id)
     db.commit()
     return {"message": "Usuario creado"}
 
 @app.post("/usuarios/{usuario_id}/tickets")
 def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    verificar_acceso_usuario(admin, usuario)
     db.add(Saldo(usuario_id=usuario_id, cantidad_tickets=saldo.cantidad, fecha_compra=date.today()))
     signo = "+" if saldo.cantidad > 0 else ""
-    registrar_log(db, auth_user.get("email", "?"), "Ajustar tickets", f"{signo}{saldo.cantidad} tickets a {usuario.nombre}")
+    registrar_log(db, admin.email, "Ajustar tickets", f"{signo}{saldo.cantidad} tickets a {usuario.nombre}", usuario.sede_id)
     db.commit()
     return {"message": "Tickets ajustados"}
 
 @app.get("/dashboard")
-def obtener_dashboard(db: Session = Depends(get_db), _=Depends(verificar_token)):
-    usuarios = db.query(Usuario).options(
+def obtener_dashboard(
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+
+    query_usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
         joinedload(Usuario.excepciones)
-    ).all()
+    )
+    if sid is not None:
+        query_usuarios = query_usuarios.filter(Usuario.sede_id == sid)
+    usuarios = query_usuarios.all()
+
     hoy = date.today()
     fecha_inicio = hoy - timedelta(days=4)
     dias_a_mostrar = 19
 
-    dias_globales_db = db.query(DiaGlobal).all()
-    dias_globales = {d.fecha for d in dias_globales_db}
+    query_globales = db.query(DiaGlobal)
+    if sid is not None:
+        query_globales = query_globales.filter(DiaGlobal.sede_id == sid)
+    dias_globales = {d.fecha for d in query_globales.all()}
 
     resultado = []
     total_hoy = 0
@@ -179,7 +267,15 @@ def obtener_dashboard(db: Session = Depends(get_db), _=Depends(verificar_token))
             "calendario": proyeccion["calendario"]
         })
 
+    # Nombre de la sede actual
+    sede_nombre = None
+    if sid is not None:
+        sede = db.query(Sede).filter(Sede.id == sid).first()
+        sede_nombre = sede.nombre if sede else None
+
     return {
+        "sede_id": sid,
+        "sede_nombre": sede_nombre,
         "fechas_columnas": [str(fecha_inicio + timedelta(days=i)) for i in range(dias_a_mostrar)],
         "usuarios": resultado,
         "dias_globales": [str(d) for d in dias_globales],
@@ -188,12 +284,14 @@ def obtener_dashboard(db: Session = Depends(get_db), _=Depends(verificar_token))
 
 @app.post("/usuarios/{usuario_id}/excepcion")
 def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    verificar_acceso_usuario(admin, usuario)
     fecha_obj = datetime.strptime(req.fecha, "%Y-%m-%d").date()
     es_domingo = fecha_obj.weekday() == 6
-    es_global = db.query(DiaGlobal).filter_by(fecha=fecha_obj).first() is not None
+    es_global = db.query(DiaGlobal).filter_by(fecha=fecha_obj, sede_id=usuario.sede_id).first() is not None
 
     if es_global:
         tipo = "Come_Global"
@@ -206,27 +304,35 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
 
     if exc_existente:
         db.delete(exc_existente)
-        registrar_log(db, auth_user.get("email", "?"), "Quitar excepcion", f"{usuario.nombre} en {req.fecha} ({tipo})")
+        registrar_log(db, admin.email, "Quitar excepcion", f"{usuario.nombre} en {req.fecha} ({tipo})", usuario.sede_id)
     else:
         db.add(Excepcion(usuario_id=usuario_id, fecha=fecha_obj, tipo_excepcion=tipo))
-        registrar_log(db, auth_user.get("email", "?"), "Agregar excepcion", f"{usuario.nombre} en {req.fecha} ({tipo})")
+        registrar_log(db, admin.email, "Agregar excepcion", f"{usuario.nombre} en {req.fecha} ({tipo})", usuario.sede_id)
 
     db.commit()
     return {"message": "Excepcion procesada"}
 
 @app.post("/dias-globales/")
-def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+def toggle_dia_global(req: DiaGlobalToggle, sede_id: Optional[int] = Query(default=None), db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
     fecha_obj = datetime.strptime(req.fecha, "%Y-%m-%d").date()
-    existente = db.query(DiaGlobal).filter_by(fecha=fecha_obj).first()
+    existente = db.query(DiaGlobal).filter_by(fecha=fecha_obj, sede_id=sid).first()
 
     if existente:
-        db.query(Excepcion).filter_by(fecha=fecha_obj, tipo_excepcion="Come_Global").delete()
+        # Limpiar excepciones Come_Global de esa sede/fecha
+        usuarios_sede = db.query(Usuario.id).filter(Usuario.sede_id == sid).subquery()
+        db.query(Excepcion).filter(
+            Excepcion.fecha == fecha_obj,
+            Excepcion.tipo_excepcion == "Come_Global",
+            Excepcion.usuario_id.in_(usuarios_sede)
+        ).delete(synchronize_session=False)
         db.delete(existente)
-        registrar_log(db, auth_user.get("email", "?"), "Desbloquear dia", req.fecha)
+        registrar_log(db, admin.email, "Desbloquear dia", req.fecha, sid)
         activo = False
     else:
-        db.add(DiaGlobal(fecha=fecha_obj))
-        registrar_log(db, auth_user.get("email", "?"), "Bloquear dia", req.fecha)
+        db.add(DiaGlobal(fecha=fecha_obj, sede_id=sid))
+        registrar_log(db, admin.email, "Bloquear dia", req.fecha, sid)
         activo = True
 
     db.commit()
@@ -234,14 +340,17 @@ def toggle_dia_global(req: DiaGlobalToggle, db: Session = Depends(get_db), auth_
 
 @app.delete("/usuarios/{usuario_id}")
 def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    verificar_acceso_usuario(admin, usuario)
     nombre = usuario.nombre
+    sid = usuario.sede_id
     db.query(Saldo).filter(Saldo.usuario_id == usuario_id).delete()
     db.query(Excepcion).filter(Excepcion.usuario_id == usuario_id).delete()
     db.delete(usuario)
-    registrar_log(db, auth_user.get("email", "?"), "Eliminar persona", nombre)
+    registrar_log(db, admin.email, "Eliminar persona", nombre, sid)
     db.commit()
     return {"message": "Usuario eliminado"}
 
@@ -249,11 +358,19 @@ def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), auth_user: 
 def obtener_auditoria(
     limite: int = Query(default=50, le=200),
     offset: int = Query(default=0, ge=0),
+    sede_id: Optional[int] = Query(default=None),
     db: Session = Depends(get_db),
-    _=Depends(verificar_token)
+    auth_user: dict = Depends(verificar_token)
 ):
-    total = db.query(LogAuditoria).count()
-    logs = db.query(LogAuditoria).order_by(desc(LogAuditoria.fecha)).offset(offset).limit(limite).all()
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+
+    query = db.query(LogAuditoria)
+    if sid is not None:
+        query = query.filter((LogAuditoria.sede_id == sid) | (LogAuditoria.sede_id == None))
+
+    total = query.count()
+    logs = query.order_by(desc(LogAuditoria.fecha)).offset(offset).limit(limite).all()
     return {
         "total": total,
         "logs": [
@@ -268,15 +385,25 @@ def obtener_auditoria(
     }
 
 @app.get("/exportar")
-def exportar_excel(fecha: str, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+def exportar_excel(fecha: str, sede_id: Optional[int] = Query(default=None), db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
     fecha_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
-    usuarios = db.query(Usuario).options(
+
+    query_usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
         joinedload(Usuario.excepciones)
-    ).all()
-    dias_globales = {d.fecha for d in db.query(DiaGlobal).all()}
-    comensales = []
+    )
+    if sid is not None:
+        query_usuarios = query_usuarios.filter(Usuario.sede_id == sid)
+    usuarios = query_usuarios.all()
 
+    query_globales = db.query(DiaGlobal)
+    if sid is not None:
+        query_globales = query_globales.filter(DiaGlobal.sede_id == sid)
+    dias_globales = {d.fecha for d in query_globales.all()}
+
+    comensales = []
     for u in usuarios:
         proyeccion = calcular_proyeccion_usuario(u, fecha_obj, 1, dias_globales)
         estado_dia = proyeccion["calendario"][0]["estado"]
@@ -294,7 +421,7 @@ def exportar_excel(fecha: str, db: Session = Depends(get_db), auth_user: dict = 
     wb.save(stream)
     stream.seek(0)
 
-    registrar_log(db, auth_user.get("email", "?"), "Exportar Excel", f"Fecha: {fecha}, {len(comensales)} comensales")
+    registrar_log(db, admin.email, "Exportar Excel", f"Fecha: {fecha}, {len(comensales)} comensales", sid)
     db.commit()
 
     return StreamingResponse(
@@ -302,3 +429,109 @@ def exportar_excel(fecha: str, db: Session = Depends(get_db), auth_user: dict = 
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f"attachment; filename=comensales_{fecha}.xlsx"}
     )
+
+# === Endpoints: Superadmin - Gestión de sedes ===
+
+@app.get("/admin/sedes")
+def listar_sedes(db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    sedes = db.query(Sede).order_by(Sede.id).all()
+    return [{"id": s.id, "nombre": s.nombre, "activa": s.activa} for s in sedes]
+
+@app.post("/admin/sedes")
+def crear_sede(req: SedeCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    existente = db.query(Sede).filter(Sede.nombre == req.nombre).first()
+    if existente:
+        raise HTTPException(status_code=400, detail="Ya existe una sede con ese nombre")
+    sede = Sede(nombre=req.nombre, activa=1)
+    db.add(sede)
+    registrar_log(db, admin.email, "Crear sede", req.nombre)
+    db.commit()
+    return {"id": sede.id, "nombre": sede.nombre, "activa": sede.activa}
+
+@app.put("/admin/sedes/{sede_id}")
+def editar_sede(sede_id: int, req: SedeUpdate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    sede = db.query(Sede).filter(Sede.id == sede_id).first()
+    if not sede:
+        raise HTTPException(status_code=404, detail="Sede no encontrada")
+    if req.nombre is not None:
+        sede.nombre = req.nombre
+    if req.activa is not None:
+        sede.activa = req.activa
+    registrar_log(db, admin.email, "Editar sede", f"{sede.nombre} (activa={sede.activa})")
+    db.commit()
+    return {"id": sede.id, "nombre": sede.nombre, "activa": sede.activa}
+
+# === Endpoints: Superadmin - Gestión de admins ===
+
+@app.get("/admin/admins")
+def listar_admins(db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    admins = db.query(AdminSede).order_by(AdminSede.id).all()
+    resultado = []
+    for a in admins:
+        sede_nombre = None
+        if a.sede_id:
+            sede = db.query(Sede).filter(Sede.id == a.sede_id).first()
+            sede_nombre = sede.nombre if sede else None
+        resultado.append({
+            "id": a.id,
+            "email": a.email,
+            "sede_id": a.sede_id,
+            "sede_nombre": sede_nombre,
+            "rol": a.rol
+        })
+    return resultado
+
+@app.post("/admin/admins")
+def crear_admin(req: AdminSedeCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    existente = db.query(AdminSede).filter(AdminSede.email == req.email).first()
+    if existente:
+        raise HTTPException(status_code=400, detail="Este email ya tiene un rol asignado")
+    if req.rol not in ("admin", "superadmin"):
+        raise HTTPException(status_code=400, detail="Rol debe ser 'admin' o 'superadmin'")
+    nuevo = AdminSede(email=req.email, sede_id=req.sede_id, rol=req.rol)
+    db.add(nuevo)
+    registrar_log(db, admin.email, "Crear admin", f"{req.email} como {req.rol}")
+    db.commit()
+    return {"id": nuevo.id, "email": nuevo.email, "sede_id": nuevo.sede_id, "rol": nuevo.rol}
+
+@app.put("/admin/admins/{admin_id}")
+def editar_admin(admin_id: int, req: AdminSedeUpdate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    target = db.query(AdminSede).filter(AdminSede.id == admin_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin no encontrado")
+    if req.sede_id is not None:
+        target.sede_id = req.sede_id
+    if req.rol is not None:
+        if req.rol not in ("admin", "superadmin"):
+            raise HTTPException(status_code=400, detail="Rol debe ser 'admin' o 'superadmin'")
+        target.rol = req.rol
+    registrar_log(db, admin.email, "Editar admin", f"{target.email}: rol={target.rol}, sede={target.sede_id}")
+    db.commit()
+    return {"id": target.id, "email": target.email, "sede_id": target.sede_id, "rol": target.rol}
+
+@app.delete("/admin/admins/{admin_id}")
+def eliminar_admin(admin_id: int, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    verificar_superadmin(admin)
+    target = db.query(AdminSede).filter(AdminSede.id == admin_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Admin no encontrado")
+    if target.email == admin.email:
+        raise HTTPException(status_code=400, detail="No puedes eliminarte a ti mismo")
+    email_target = target.email
+    db.delete(target)
+    registrar_log(db, admin.email, "Eliminar admin", email_target)
+    db.commit()
+    return {"message": "Admin eliminado"}

@@ -1,8 +1,11 @@
 # models.py
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, ForeignKey
+import logging
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, ForeignKey, text
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import datetime
+
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tiqueteras.db")
 
@@ -23,10 +26,26 @@ else:
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+# === Modelos ===
+
+class Sede(Base):
+    __tablename__ = "sedes"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, unique=True, nullable=False)
+    activa = Column(Integer, default=1)
+
+class AdminSede(Base):
+    __tablename__ = "admin_sedes"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, nullable=False, index=True)
+    sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True)
+    rol = Column(String, nullable=False, default="admin")
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     id = Column(Integer, primary_key=True, index=True)
     nombre = Column(String, index=True)
+    sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
     saldos = relationship("Saldo", back_populates="usuario")
     excepciones = relationship("Excepcion", back_populates="usuario")
 
@@ -43,13 +62,14 @@ class Excepcion(Base):
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
     fecha = Column(Date)
-    tipo_excepcion = Column(String) # 'Ausencia', 'Domingo_Habilitado' o 'Come_Global'
+    tipo_excepcion = Column(String)
     usuario = relationship("Usuario", back_populates="excepciones")
 
 class DiaGlobal(Base):
     __tablename__ = "dias_globales"
     id = Column(Integer, primary_key=True, index=True)
-    fecha = Column(Date, unique=True, index=True)
+    fecha = Column(Date, index=True)
+    sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
 
 class LogAuditoria(Base):
     __tablename__ = "log_auditoria"
@@ -58,5 +78,66 @@ class LogAuditoria(Base):
     email = Column(String)
     accion = Column(String)
     detalle = Column(String)
+    sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True)
 
+# === Crear tablas nuevas ===
 Base.metadata.create_all(bind=engine)
+
+# === Migracion: agregar columnas a tablas existentes ===
+
+def migrar_sedes():
+    with engine.connect() as conn:
+        # Verificar si ya se migro
+        try:
+            conn.execute(text("SELECT sede_id FROM usuarios LIMIT 1"))
+            return
+        except Exception:
+            conn.rollback()
+
+        logger.info("Ejecutando migracion multi-sede...")
+        try:
+            conn.execute(text("ALTER TABLE usuarios ADD COLUMN sede_id INTEGER REFERENCES sedes(id)"))
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE dias_globales ADD COLUMN sede_id INTEGER REFERENCES sedes(id)"))
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE log_auditoria ADD COLUMN sede_id INTEGER REFERENCES sedes(id)"))
+        except Exception:
+            conn.rollback()
+        try:
+            conn.execute(text("ALTER TABLE dias_globales DROP CONSTRAINT IF EXISTS dias_globales_fecha_key"))
+            conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_diaglobal_fecha_sede ON dias_globales(fecha, sede_id)"))
+        except Exception:
+            conn.rollback()
+        conn.commit()
+        logger.info("Migracion multi-sede completada")
+
+def bootstrap_superadmin():
+    superadmin_email = os.getenv("SUPERADMIN_EMAIL", "")
+    if not superadmin_email:
+        return
+
+    with engine.connect() as conn:
+        count = conn.execute(text("SELECT COUNT(*) FROM admin_sedes")).scalar()
+        if count > 0:
+            return
+
+        logger.info("Bootstrap: creando sede Principal y superadmin...")
+        conn.execute(text("INSERT INTO sedes (nombre, activa) VALUES ('Principal', 1)"))
+        conn.execute(text(
+            "INSERT INTO admin_sedes (email, sede_id, rol) VALUES (:email, NULL, 'superadmin')"
+        ), {"email": superadmin_email})
+        conn.execute(text("UPDATE usuarios SET sede_id = 1 WHERE sede_id IS NULL"))
+        conn.execute(text("UPDATE dias_globales SET sede_id = 1 WHERE sede_id IS NULL"))
+        conn.commit()
+        logger.info("Bootstrap completado")
+
+# Ejecutar migracion y bootstrap al importar
+try:
+    migrar_sedes()
+    bootstrap_superadmin()
+except Exception as e:
+    logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")

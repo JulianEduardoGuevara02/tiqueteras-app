@@ -24,6 +24,8 @@
         @keyframes slideOut { from { transform: translateX(0); opacity:1 } to { transform: translateX(100%); opacity:0 } }
         .calendar-scroll::-webkit-scrollbar { height: 6px; }
         .calendar-scroll::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }
+        .tab-active { color: #4f46e5; border-color: #4f46e5; }
+        .tab-inactive { color: #9ca3af; border-color: transparent; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -42,14 +44,25 @@
                     <h1 class="text-lg font-bold text-gray-800 leading-tight">Tiqueteras</h1>
                     <p class="text-[11px] text-gray-400 leading-tight hidden sm:block">Gestion de Alimentacion</p>
                 </div>
+                <!-- Badge sede (admin regular) -->
+                <span id="sedeBadge" class="hidden bg-brand-50 text-brand-700 px-3 py-1 rounded-lg text-xs font-medium border border-brand-100"></span>
+                <!-- Selector sede (superadmin) -->
+                <select id="sedeSelector" class="hidden border border-gray-200 bg-white px-3 py-1.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer" onchange="cambiarSede(this.value)"></select>
             </div>
 
-            <div class="flex items-center gap-3 sm:gap-4">
+            <div class="flex items-center gap-2 sm:gap-3">
                 <!-- Metrica -->
                 <div class="bg-brand-50 border border-brand-100 px-4 py-2 rounded-xl text-center">
                     <span class="block text-[10px] text-brand-600 font-medium uppercase tracking-wide">Hoy</span>
                     <span id="metricHoy" class="text-2xl font-bold text-brand-700 leading-tight">0</span>
                 </div>
+                <!-- Config (superadmin) -->
+                <button id="btnConfig" onclick="abrirConfig()" class="hidden text-gray-400 hover:text-brand-600 transition-colors p-2 rounded-lg hover:bg-brand-50" title="Configuracion">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </button>
                 <button onclick="abrirHistorial()" class="text-gray-400 hover:text-brand-600 transition-colors p-2 rounded-lg hover:bg-brand-50" title="Historial de cambios">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -64,7 +77,19 @@
         </div>
     </header>
 
-    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 space-y-4">
+    <!-- Sin acceso -->
+    <div id="sinAcceso" class="hidden min-h-[60vh] flex items-center justify-center">
+        <div class="bg-white border border-gray-200 rounded-2xl p-12 text-center shadow-sm max-w-sm">
+            <svg class="w-12 h-12 text-red-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+            <p class="text-gray-700 font-medium">Sin acceso</p>
+            <p class="text-gray-400 text-sm mt-1">Tu cuenta no tiene permisos. Contacta al administrador.</p>
+            <button onclick="cerrarSesion()" class="mt-4 text-sm text-brand-600 hover:underline">Cerrar sesion</button>
+        </div>
+    </div>
+
+    <main id="mainContent" class="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 space-y-4">
         <!-- Toolbar -->
         <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
             <div class="flex gap-2 flex-1 min-w-0">
@@ -85,7 +110,6 @@
                 </button>
             </div>
 
-            <!-- Leyenda compacta -->
             <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-green-500 rounded-sm inline-block"></span>Pagado</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-orange-400 rounded-sm inline-block"></span>Fiado</span>
@@ -221,6 +245,58 @@
                 <div class="flex gap-2">
                     <button onclick="historialPagAnterior()" id="btnHistPrev" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Anterior</button>
                     <button onclick="historialPagSiguiente()" id="btnHistNext" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Siguiente</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Configuracion (superadmin) -->
+    <div id="modalConfig" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarConfig()">
+        <div class="bg-white rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <h2 class="text-lg font-bold text-gray-800">Configuracion</h2>
+                <button onclick="cerrarConfig()" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-100 px-6 shrink-0">
+                <button onclick="configTab('sedes')" id="tabSedes" class="px-4 py-3 text-sm font-medium border-b-2 tab-active">Sedes</button>
+                <button onclick="configTab('admins')" id="tabAdmins" class="px-4 py-3 text-sm font-medium border-b-2 tab-inactive">Administradores</button>
+            </div>
+            <div class="overflow-y-auto flex-1 p-6">
+                <!-- Tab: Sedes -->
+                <div id="panelSedes">
+                    <div class="flex gap-2 mb-4">
+                        <input type="text" id="inputNuevaSede" placeholder="Nombre de la nueva sede"
+                            class="flex-1 border border-gray-200 bg-gray-50 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors">
+                        <button onclick="crearSede()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:scale-[0.97] transition-all">Crear</button>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead class="text-[11px] text-gray-500 uppercase tracking-wider border-b">
+                            <tr><th class="pb-2 text-left font-medium">Nombre</th><th class="pb-2 text-left font-medium">Estado</th><th class="pb-2 text-right font-medium">Accion</th></tr>
+                        </thead>
+                        <tbody id="configSedesBody"></tbody>
+                    </table>
+                </div>
+                <!-- Tab: Admins -->
+                <div id="panelAdmins" class="hidden">
+                    <div class="flex flex-col sm:flex-row gap-2 mb-4">
+                        <input type="email" id="inputAdminEmail" placeholder="Email del admin"
+                            class="flex-1 border border-gray-200 bg-gray-50 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors">
+                        <select id="selectAdminSede" class="border border-gray-200 bg-gray-50 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500"></select>
+                        <select id="selectAdminRol" class="border border-gray-200 bg-gray-50 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500">
+                            <option value="admin">Admin</option>
+                            <option value="superadmin">Superadmin</option>
+                        </select>
+                        <button onclick="crearAdmin()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:scale-[0.97] transition-all whitespace-nowrap">Agregar</button>
+                    </div>
+                    <table class="w-full text-sm">
+                        <thead class="text-[11px] text-gray-500 uppercase tracking-wider border-b">
+                            <tr><th class="pb-2 text-left font-medium">Email</th><th class="pb-2 text-left font-medium">Sede</th><th class="pb-2 text-left font-medium">Rol</th><th class="pb-2 text-right font-medium">Accion</th></tr>
+                        </thead>
+                        <tbody id="configAdminsBody"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
