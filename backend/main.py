@@ -330,12 +330,13 @@ def toggle_dia_global(req: DiaGlobalToggle, sede_id: Optional[int] = Query(defau
 
     if existente:
         # Limpiar excepciones Come_Global de esa sede/fecha
-        usuarios_sede = db.query(Usuario.id).filter(Usuario.sede_id == sid).subquery()
-        db.query(Excepcion).filter(
-            Excepcion.fecha == fecha_obj,
-            Excepcion.tipo_excepcion == "Come_Global",
-            Excepcion.usuario_id.in_(usuarios_sede)
-        ).delete(synchronize_session=False)
+        usuarios_sede = [u.id for u in db.query(Usuario.id).filter(Usuario.sede_id == sid).all()]
+        if usuarios_sede:
+            db.query(Excepcion).filter(
+                Excepcion.fecha == fecha_obj,
+                Excepcion.tipo_excepcion == "Come_Global",
+                Excepcion.usuario_id.in_(usuarios_sede)
+            ).delete(synchronize_session=False)
         db.delete(existente)
         registrar_log(db, admin.email, "Quitar festivo", req.fecha, sid)
         activo = False
