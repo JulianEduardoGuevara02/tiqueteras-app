@@ -305,7 +305,7 @@ function renderizarCalendario(data) {
 
         htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors ' + rowOpacity + '" data-nombre="' + nombreSafe.toLowerCase() + '">'
             + '<td class="p-2.5 font-medium cursor-pointer text-gray-700 hover:text-brand-600 sticky left-0 bg-white z-10 border-r border-gray-200 transition-colors"'
-            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ')">'
+            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ',\'' + escaparHtml(user.email || '') + '\')">'
             + '<div class="flex items-center">'
             + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge
             + '</div></td>';
@@ -377,7 +377,7 @@ async function toggleExcepcion(userId, fecha) {
 
 // === Modal: Perfil ===
 
-function abrirModalPerfil(id, nombre, saldo, cobertura, activo) {
+function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email) {
     usuarioActualId = id;
     usuarioActualNombre = nombre;
     document.getElementById("modalNombre").innerText = nombre;
@@ -397,12 +397,27 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo) {
     }
 
     document.getElementById("modalCobertura").innerText = formatearFechaCompleta(cobertura);
+    document.getElementById("inputEmail").value = email || "";
     document.getElementById("modalPerfil").classList.remove("hidden");
 }
 
 function cerrarModal() {
     document.getElementById("modalPerfil").classList.add("hidden");
     document.getElementById("inputTickets").value = "";
+    document.getElementById("inputEmail").value = "";
+}
+
+async function guardarEmail() {
+    var email = document.getElementById("inputEmail").value.trim();
+    var token = await obtenerToken();
+    if (!token) return;
+    var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/email", {
+        method: "PUT", headers: authHeaders(token),
+        body: JSON.stringify({ email: email || null })
+    });
+    if (!res) return;
+    mostrarToast(email ? "Correo guardado" : "Correo eliminado", "success");
+    cargarDashboard();
 }
 
 async function ajustarTickets(accion) {
@@ -813,4 +828,14 @@ async function eliminarAdmin(adminId, email) {
 
     mostrarToast("Acceso removido", "success");
     cargarConfigAdmins();
+}
+
+// === Recordatorios (proximamente) ===
+
+function abrirRecordatorios() {
+    document.getElementById("modalRecordatorios").classList.remove("hidden");
+}
+
+function cerrarRecordatorios() {
+    document.getElementById("modalRecordatorios").classList.add("hidden");
 }

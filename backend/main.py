@@ -65,6 +65,7 @@ class UsuarioCreate(BaseModel):
 class SaldoCreate(BaseModel): cantidad: int
 class ExcepcionToggle(BaseModel): fecha: str
 class DiaGlobalToggle(BaseModel): fecha: str
+class EmailUpdate(BaseModel): email: Optional[str] = None
 class SedeCreate(BaseModel): nombre: str
 class SedeUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -226,6 +227,19 @@ def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(g
     db.commit()
     return {"message": "Tickets ajustados"}
 
+@app.put("/usuarios/{usuario_id}/email")
+def actualizar_email(usuario_id: int, req: EmailUpdate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    verificar_acceso_usuario(admin, usuario)
+    email_anterior = usuario.email or "vacio"
+    usuario.email = req.email.strip() if req.email and req.email.strip() else None
+    registrar_log(db, admin.email, "Actualizar email", f"{usuario.nombre}: {email_anterior} -> {usuario.email or 'vacio'}", usuario.sede_id)
+    db.commit()
+    return {"message": "Email actualizado", "email": usuario.email}
+
 @app.get("/dashboard")
 def obtener_dashboard(
     sede_id: Optional[int] = Query(default=None),
@@ -271,6 +285,7 @@ def obtener_dashboard(
             "id": u.id,
             "nombre": u.nombre,
             "activo": u.activo,
+            "email": u.email,
             "saldo_actual": proyeccion["saldo_actual"],
             "fecha_cobertura": proyeccion["fecha_cobertura"],
             "calendario": proyeccion["calendario"]

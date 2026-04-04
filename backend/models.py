@@ -47,6 +47,7 @@ class Usuario(Base):
     nombre = Column(String, index=True)
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
     activo = Column(Integer, default=1)
+    email = Column(String, nullable=True)
     saldos = relationship("Saldo", back_populates="usuario")
     excepciones = relationship("Excepcion", back_populates="usuario")
 
@@ -144,20 +145,33 @@ def migrar_activo_usuario():
     with engine.connect() as conn:
         try:
             conn.execute(text("SELECT activo FROM usuarios LIMIT 1"))
-            return
         except Exception:
             conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1"))
+                conn.commit()
+                logger.info("Migracion: columna activo agregada a usuarios")
+            except Exception:
+                conn.rollback()
+
+def migrar_email_usuario():
+    with engine.connect() as conn:
         try:
-            conn.execute(text("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1"))
-            conn.commit()
-            logger.info("Migracion: columna activo agregada a usuarios")
+            conn.execute(text("SELECT email FROM usuarios LIMIT 1"))
         except Exception:
             conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN email VARCHAR"))
+                conn.commit()
+                logger.info("Migracion: columna email agregada a usuarios")
+            except Exception:
+                conn.rollback()
 
 # Ejecutar migraciones y bootstrap al importar
 try:
     migrar_sedes()
     migrar_activo_usuario()
+    migrar_email_usuario()
     bootstrap_superadmin()
 except Exception as e:
     logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")
