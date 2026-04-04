@@ -101,7 +101,7 @@ async function fetchConReintentos(url, opciones, maxIntentos) {
                 await cerrarSesion();
                 return null;
             }
-            if (res.status === 403) {
+            if (res.status === 403 || res.status === 400) {
                 return res;
             }
             if (!res.ok) throw new Error("HTTP " + res.status);
@@ -429,10 +429,16 @@ async function crearUsuario() {
     if (!token) return;
     var body = { nombre: nombre };
     if (sedeActual) body.sede_id = sedeActual;
-    await fetchConReintentos(API_URL + "/usuarios/", {
+    var res = await fetchConReintentos(API_URL + "/usuarios/", {
         method: "POST", headers: authHeaders(token),
         body: JSON.stringify(body)
     });
+    if (!res) return;
+    if (res.status === 400) {
+        var err = await res.json();
+        mostrarToast(err.detail || "Error al crear persona", "error");
+        return;
+    }
     cerrarModalNuevo();
     mostrarToast(nombre + " agregado correctamente", "success");
     cargarDashboard();

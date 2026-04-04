@@ -203,6 +203,11 @@ def mi_perfil(db: Session = Depends(get_db), auth_user: dict = Depends(verificar
 def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
     admin = obtener_admin_sede(db, auth_user.get("email", ""))
     sede_id = obtener_sede_id(admin, user.sede_id)
+    existente = db.query(Usuario).filter(
+        Usuario.nombre == user.nombre, Usuario.sede_id == sede_id
+    ).first()
+    if existente:
+        raise HTTPException(status_code=400, detail=f'Ya existe "{user.nombre}" en esta sede')
     db.add(Usuario(nombre=user.nombre, sede_id=sede_id))
     registrar_log(db, admin.email, "Crear persona", user.nombre, sede_id)
     db.commit()
