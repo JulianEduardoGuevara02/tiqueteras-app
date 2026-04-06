@@ -15,6 +15,7 @@ var diasGlobales = [];
 var miPerfil = null;
 var sedeActual = null;
 var verInactivos = false;
+var offsetDias = 0;
 
 // === Toasts ===
 
@@ -217,6 +218,16 @@ function actualizarUISegunPerfil() {
 
 function cambiarSede(nuevoSedeId) {
     sedeActual = parseInt(nuevoSedeId);
+    offsetDias = 0;
+    cargarDashboard();
+}
+
+function navegarCalendario(dias) {
+    if (dias === 0) {
+        offsetDias = 0;
+    } else {
+        offsetDias += dias;
+    }
     cargarDashboard();
 }
 
@@ -244,7 +255,7 @@ async function cargarDashboard() {
 
     mostrarCarga("Cargando datos del servidor...");
 
-    var url = API_URL + "/dashboard?incluir_inactivos=" + (verInactivos ? 1 : 0);
+    var url = API_URL + "/dashboard?incluir_inactivos=" + (verInactivos ? 1 : 0) + "&offset_dias=" + offsetDias;
     if (sedeActual) url += "&sede_id=" + sedeActual;
 
     var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
@@ -255,6 +266,19 @@ async function cargarDashboard() {
     var data = await res.json();
     diasGlobales = data.dias_globales || [];
     document.getElementById("metricHoy").innerText = data.metricas.almuerzos_hoy;
+
+    // Actualizar rango de fechas y boton Hoy
+    if (data.fechas_columnas && data.fechas_columnas.length > 0) {
+        var primera = formatearFechaCorta(data.fechas_columnas[0]);
+        var ultima = formatearFechaCorta(data.fechas_columnas[data.fechas_columnas.length - 1]);
+        document.getElementById("rangoFechas").textContent = primera + " - " + ultima;
+    }
+    var btnHoy = document.getElementById("btnHoy");
+    if (offsetDias !== 0) {
+        btnHoy.classList.remove("hidden");
+    } else {
+        btnHoy.classList.add("hidden");
+    }
 
     if (data.usuarios.length === 0) {
         document.getElementById("emptyState").classList.remove("hidden");

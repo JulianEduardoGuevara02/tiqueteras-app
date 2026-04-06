@@ -244,6 +244,7 @@ def actualizar_email(usuario_id: int, req: EmailUpdate, db: Session = Depends(ge
 def obtener_dashboard(
     sede_id: Optional[int] = Query(default=None),
     incluir_inactivos: int = Query(default=0),
+    offset_dias: int = Query(default=0),
     db: Session = Depends(get_db),
     auth_user: dict = Depends(verificar_token)
 ):
@@ -261,7 +262,7 @@ def obtener_dashboard(
     usuarios = query_usuarios.all()
 
     hoy = date.today()
-    fecha_inicio = hoy - timedelta(days=4)
+    fecha_inicio = hoy - timedelta(days=4) + timedelta(days=offset_dias)
     dias_a_mostrar = 19
 
     query_globales = db.query(DiaGlobal)
