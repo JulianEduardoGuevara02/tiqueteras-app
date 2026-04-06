@@ -101,7 +101,7 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     deuda = 0
 
     estados_dias = {}
-    limite_simulacion = max(hoy, fecha_inicio_visual) + timedelta(days=dias_a_mostrar)
+    limite_simulacion = max(hoy, fecha_inicio_visual + timedelta(days=dias_a_mostrar))
     fecha_iter = fecha_inicio_consumo
 
     fecha_cobertura = None

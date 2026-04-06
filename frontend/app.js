@@ -247,6 +247,53 @@ function toggleVerInactivos() {
     cargarDashboard();
 }
 
+// === Recarga silenciosa (sin ocultar tabla) ===
+
+var toastLentoTimer = null;
+
+async function recargarSilencioso() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    // Si tarda mas de 3s, mostrar toast
+    toastLentoTimer = setTimeout(function() {
+        mostrarToast("Procesando, el servidor esta respondiendo...", "info");
+    }, 3000);
+
+    var url = API_URL + "/dashboard?incluir_inactivos=" + (verInactivos ? 1 : 0) + "&offset_dias=" + offsetDias;
+    if (sedeActual) url += "&sede_id=" + sedeActual;
+
+    var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
+
+    clearTimeout(toastLentoTimer);
+
+    // Quitar estados de procesando
+    document.querySelectorAll(".celda-procesando, .th-procesando").forEach(function(el) {
+        el.classList.remove("celda-procesando", "th-procesando");
+    });
+
+    if (!res || res.status === 403) return;
+
+    var data = await res.json();
+    diasGlobales = data.dias_globales || [];
+    document.getElementById("metricHoy").innerText = data.metricas.almuerzos_hoy;
+
+    if (data.fechas_columnas && data.fechas_columnas.length > 0) {
+        var primera = formatearFechaCorta(data.fechas_columnas[0]);
+        var ultima = formatearFechaCorta(data.fechas_columnas[data.fechas_columnas.length - 1]);
+        document.getElementById("rangoFechas").textContent = primera + " - " + ultima;
+    }
+
+    if (data.usuarios.length === 0) {
+        document.getElementById("emptyState").classList.remove("hidden");
+        document.getElementById("tableContainer").classList.add("hidden");
+    } else {
+        document.getElementById("emptyState").classList.add("hidden");
+        document.getElementById("tableContainer").classList.remove("hidden");
+        renderizarCalendario(data);
+    }
+}
+
 // === Dashboard ===
 
 async function cargarDashboard() {
@@ -329,7 +376,7 @@ function renderizarCalendario(data) {
 
         htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors ' + rowOpacity + '" data-nombre="' + nombreSafe.toLowerCase() + '">'
             + '<td class="p-2.5 font-medium cursor-pointer text-gray-700 hover:text-brand-600 sticky left-0 bg-white z-10 border-r border-gray-200 transition-colors"'
-            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ',\'' + escaparHtml(user.email || '') + '\')">'
+            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ',\'' + escaparHtml(user.email || '').replace(/'/g, "\\'") + '\')">'
             + '<div class="flex items-center">'
             + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge
             + '</div></td>';
@@ -358,7 +405,7 @@ function renderizarCalendario(data) {
             }
 
             htmlBody += '<td class="p-1 min-w-[70px] border-l border-gray-100 ' + todayBg + '">'
-                + '<div' + (esInactivo ? '' : ' onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\')"')
+                + '<div' + (esInactivo ? '' : ' onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\',event)"')
                 + ' class="h-9 w-full rounded-lg ' + colorClass + (esInactivo ? '' : ' cursor-pointer hover:scale-105 hover:shadow-sm') + ' transition-all flex justify-center items-center text-xs font-medium ' + textColor + '"'
                 + ' title="' + dia.fecha + (esInactivo ? ' - Inactivo' : ' - ' + dia.estado) + '">'
                 + inicial + '</div></td>';
@@ -378,6 +425,14 @@ document.getElementById("searchInput").addEventListener("input", function(e) {
 // === Acciones ===
 
 async function toggleDiaGlobal(fecha) {
+    // Feedback visual en el encabezado del dia
+    var ths = document.querySelectorAll("#calendarHead th");
+    ths.forEach(function(th) {
+        if (th.getAttribute("onclick") && th.getAttribute("onclick").indexOf(fecha) !== -1) {
+            th.classList.add("th-procesando");
+        }
+    });
+
     var token = await obtenerToken();
     if (!token) return;
     var url = API_URL + "/dias-globales/";
@@ -386,17 +441,22 @@ async function toggleDiaGlobal(fecha) {
         method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
-    cargarDashboard();
+    recargarSilencioso();
 }
 
-async function toggleExcepcion(userId, fecha) {
+async function toggleExcepcion(userId, fecha, evt) {
+    // Feedback visual en la celda clickeada
+    if (evt && evt.currentTarget) {
+        evt.currentTarget.classList.add("celda-procesando");
+    }
+
     var token = await obtenerToken();
     if (!token) return;
     await fetchConReintentos(API_URL + "/usuarios/" + userId + "/excepcion", {
         method: "POST", headers: authHeaders(token),
         body: JSON.stringify({ fecha: fecha })
     });
-    cargarDashboard();
+    recargarSilencioso();
 }
 
 // === Modal: Perfil ===
@@ -441,7 +501,7 @@ async function guardarEmail() {
     });
     if (!res) return;
     mostrarToast(email ? "Correo guardado" : "Correo eliminado", "success");
-    cargarDashboard();
+    recargarSilencioso();
 }
 
 async function ajustarTickets(accion) {
@@ -460,7 +520,7 @@ async function ajustarTickets(accion) {
     });
     cerrarModal();
     mostrarToast(accion === "agregar" ? "Tickets abonados correctamente" : "Tickets removidos correctamente", "success");
-    cargarDashboard();
+    recargarSilencioso();
 }
 
 async function toggleActivoUsuario() {
@@ -473,7 +533,7 @@ async function toggleActivoUsuario() {
     var data = await res.json();
     cerrarModal();
     mostrarToast(usuarioActualNombre + (data.activo ? " activado" : " desactivado"), "success");
-    cargarDashboard();
+    recargarSilencioso();
 }
 
 async function eliminarUsuario() {
@@ -485,7 +545,7 @@ async function eliminarUsuario() {
     });
     cerrarModal();
     mostrarToast(usuarioActualNombre + " eliminado", "info");
-    cargarDashboard();
+    recargarSilencioso();
 }
 
 // === Modal: Nuevo Usuario ===
@@ -522,7 +582,7 @@ async function crearUsuario() {
     }
     cerrarModalNuevo();
     mostrarToast(nombre + " agregado correctamente", "success");
-    cargarDashboard();
+    recargarSilencioso();
 }
 
 // Enter para crear usuario en el modal

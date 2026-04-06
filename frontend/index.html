@@ -26,6 +26,9 @@
         .calendar-scroll::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }
         .tab-active { color: #4f46e5; border-color: #4f46e5; }
         .tab-inactive { color: #9ca3af; border-color: transparent; }
+        @keyframes pulse-border { 0%,100% { opacity:.4 } 50% { opacity:1 } }
+        .celda-procesando { animation: pulse-border .8s ease-in-out infinite; outline: 2px solid #6366f1; outline-offset: -2px; opacity: .6; pointer-events: none; }
+        .th-procesando { animation: pulse-border .8s ease-in-out infinite; outline: 2px solid #6366f1; outline-offset: -2px; opacity: .6; pointer-events: none; }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
