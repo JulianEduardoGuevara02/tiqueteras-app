@@ -61,11 +61,13 @@ def registrar_log(db: Session, email: str, accion: str, detalle: str, sede_id: O
 class UsuarioCreate(BaseModel):
     nombre: str
     sede_id: Optional[int] = None
+    tipo: str = "recurrente"
 
 class SaldoCreate(BaseModel): cantidad: int
 class ExcepcionToggle(BaseModel): fecha: str
 class DiaGlobalToggle(BaseModel): fecha: str
 class EmailUpdate(BaseModel): email: Optional[str] = None
+class TipoUpdate(BaseModel): tipo: str
 class SedeCreate(BaseModel): nombre: str
 class SedeUpdate(BaseModel):
     nombre: Optional[str] = None
@@ -83,6 +85,7 @@ class AdminSedeUpdate(BaseModel):
 # === Proyeccion (sin cambios) ===
 
 def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dias_a_mostrar: int, dias_globales: set):
+    es_esporadico = getattr(usuario, "tipo", "recurrente") == "esporadico"
     saldos = usuario.saldos
     total_tickets = sum(s.cantidad_tickets for s in saldos)
 
@@ -115,14 +118,22 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         come = False
         estado_base = ""
 
-        if es_global and tipo_exc != "Come_Global":
-            estado_base = "global_blocked"
-        elif tipo_exc == "Ausencia":
-            estado_base = "absence"
-        elif es_domingo and tipo_exc != "Domingo_Habilitado":
-            estado_base = "sunday_blocked"
+        if es_esporadico:
+            # Esporadico: solo come si tiene excepcion "Asistencia"
+            if tipo_exc == "Asistencia":
+                come = True
+            else:
+                estado_base = "sunday_blocked"  # gris neutro
         else:
-            come = True
+            # Recurrente: logica original
+            if es_global and tipo_exc != "Come_Global":
+                estado_base = "global_blocked"
+            elif tipo_exc == "Ausencia":
+                estado_base = "absence"
+            elif es_domingo and tipo_exc != "Domingo_Habilitado":
+                estado_base = "sunday_blocked"
+            else:
+                come = True
 
         if come:
             if tickets_restantes > 0:
@@ -158,7 +169,11 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     calendario = []
     curr_date = fecha_inicio_visual
     for _ in range(dias_a_mostrar):
-        estado = estados_dias.get(curr_date, "past_absence" if curr_date < hoy else "sin_cobertura")
+        if es_esporadico:
+            default = "sunday_blocked"
+        else:
+            default = "past_absence" if curr_date < hoy else "sin_cobertura"
+        estado = estados_dias.get(curr_date, default)
         calendario.append({"fecha": str(curr_date), "estado": estado, "es_hoy": curr_date == hoy})
         curr_date += timedelta(days=1)
 
@@ -209,7 +224,8 @@ def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), auth_user:
     ).first()
     if existente:
         raise HTTPException(status_code=400, detail=f'Ya existe "{user.nombre}" en esta sede')
-    db.add(Usuario(nombre=user.nombre, sede_id=sede_id))
+    tipo = user.tipo if user.tipo in ("recurrente", "esporadico") else "recurrente"
+    db.add(Usuario(nombre=user.nombre, sede_id=sede_id, tipo=tipo))
     registrar_log(db, admin.email, "Crear persona", user.nombre, sede_id)
     db.commit()
     return {"message": "Usuario creado"}
@@ -287,6 +303,7 @@ def obtener_dashboard(
             "nombre": u.nombre,
             "activo": u.activo,
             "email": u.email,
+            "tipo": getattr(u, "tipo", "recurrente") or "recurrente",
             "saldo_actual": proyeccion["saldo_actual"],
             "fecha_cobertura": proyeccion["fecha_cobertura"],
             "calendario": proyeccion["calendario"]
@@ -315,10 +332,13 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     verificar_acceso_usuario(admin, usuario)
     fecha_obj = datetime.strptime(req.fecha, "%Y-%m-%d").date()
+    es_esporadico = getattr(usuario, "tipo", "recurrente") == "esporadico"
     es_domingo = fecha_obj.weekday() == 6
     es_global = db.query(DiaGlobal).filter_by(fecha=fecha_obj, sede_id=usuario.sede_id).first() is not None
 
-    if es_global:
+    if es_esporadico:
+        tipo = "Asistencia"
+    elif es_global:
         tipo = "Come_Global"
     elif es_domingo:
         tipo = "Domingo_Habilitado"
@@ -392,6 +412,20 @@ def toggle_activo_usuario(usuario_id: int, db: Session = Depends(get_db), auth_u
     registrar_log(db, admin.email, f"{estado} persona", usuario.nombre, usuario.sede_id)
     db.commit()
     return {"message": f"Usuario {'activado' if usuario.activo == 1 else 'desactivado'}", "activo": usuario.activo}
+
+@app.put("/usuarios/{usuario_id}/tipo")
+def cambiar_tipo_usuario(usuario_id: int, req: TipoUpdate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    verificar_acceso_usuario(admin, usuario)
+    if req.tipo not in ("recurrente", "esporadico"):
+        raise HTTPException(status_code=400, detail="Tipo debe ser 'recurrente' o 'esporadico'")
+    usuario.tipo = req.tipo
+    registrar_log(db, admin.email, "Cambiar tipo", f"{usuario.nombre}: {req.tipo}", usuario.sede_id)
+    db.commit()
+    return {"message": "Tipo actualizado", "tipo": usuario.tipo}
 
 @app.get("/auditoria")
 def obtener_auditoria(

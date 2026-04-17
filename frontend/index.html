@@ -200,6 +200,14 @@
                     </div>
                 </div>
 
+                <div class="flex items-center justify-between bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100">
+                    <div>
+                        <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium">Tipo de persona</p>
+                        <p id="lblTipoActual" class="text-sm font-semibold text-gray-700 mt-0.5">Recurrente</p>
+                    </div>
+                    <button onclick="cambiarTipoUsuario()" id="btnCambiarTipo" class="text-xs text-gray-400 hover:text-purple-500 transition-colors px-2 py-1 rounded hover:bg-purple-50">Cambiar a esporadico</button>
+                </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-600 mb-1.5">Correo electronico</label>
                     <div class="flex gap-2">
@@ -239,6 +247,13 @@
                     <input type="text" id="inputNuevoNombre"
                         class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors"
                         placeholder="Ej: Juan Perez">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Tipo</label>
+                    <select id="selectNuevoTipo" class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm">
+                        <option value="recurrente">Recurrente (come todos los dias habiles)</option>
+                        <option value="esporadico">Esporadico (solo cuando se registra asistencia)</option>
+                    </select>
                 </div>
                 <div class="flex gap-2">
                     <button onclick="crearUsuario()" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm text-sm">Agregar</button>

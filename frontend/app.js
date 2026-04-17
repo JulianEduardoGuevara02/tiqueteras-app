@@ -9,6 +9,7 @@ const API_URL = window.location.hostname === "localhost"
 
 var usuarioActualId = null;
 var usuarioActualNombre = "";
+var usuarioActualTipo = "recurrente";
 var diasGlobales = [];
 
 // === Multi-sede ===
@@ -368,17 +369,19 @@ function renderizarCalendario(data) {
     data.usuarios.forEach(function(user) {
         var nombreSafe = escaparHtml(user.nombre);
         var esInactivo = user.activo === 0;
+        var esEsporadico = user.tipo === "esporadico";
         var saldoColor = user.saldo_actual < 0 ? "text-red-500" : "text-brand-600";
         var saldoSign = user.saldo_actual < 0 ? "" : "+";
         var saldoBadge = '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
         var inactivoBadge = esInactivo ? '<span class="text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Inactivo</span>' : '';
+        var esporadicoBadge = (!esInactivo && esEsporadico) ? '<span class="text-[10px] text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Esporadico</span>' : '';
         var rowOpacity = esInactivo ? "opacity-50" : "";
 
         htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors ' + rowOpacity + '" data-nombre="' + nombreSafe.toLowerCase() + '">'
             + '<td class="p-2.5 font-medium cursor-pointer text-gray-700 hover:text-brand-600 sticky left-0 bg-white z-10 border-r border-gray-200 transition-colors"'
-            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ',\'' + escaparHtml(user.email || '').replace(/'/g, "\\'") + '\')">'
+            + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ',\'' + escaparHtml(user.email || '').replace(/'/g, "\\'") + '\',\'' + (user.tipo || 'recurrente') + '\')">'
             + '<div class="flex items-center">'
-            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge
+            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge + esporadicoBadge
             + '</div></td>';
 
         user.calendario.forEach(function(dia) {
@@ -404,10 +407,11 @@ function renderizarCalendario(data) {
                 if (dia.estado === "global_blocked") { colorClass = "bg-red-600 border border-red-700"; textColor = "text-white"; }
             }
 
+            var titleText = dia.fecha + (esInactivo ? ' - Inactivo' : esEsporadico ? ' - Click para registrar/quitar asistencia' : ' - ' + dia.estado);
             htmlBody += '<td class="p-1 min-w-[70px] border-l border-gray-100 ' + todayBg + '">'
                 + '<div' + (esInactivo ? '' : ' onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\',event)"')
                 + ' class="h-9 w-full rounded-lg ' + colorClass + (esInactivo ? '' : ' cursor-pointer hover:scale-105 hover:shadow-sm') + ' transition-all flex justify-center items-center text-xs font-medium ' + textColor + '"'
-                + ' title="' + dia.fecha + (esInactivo ? ' - Inactivo' : ' - ' + dia.estado) + '">'
+                + ' title="' + titleText + '">'
                 + inicial + '</div></td>';
         });
         htmlBody += '</tr>';
@@ -461,15 +465,24 @@ async function toggleExcepcion(userId, fecha, evt) {
 
 // === Modal: Perfil ===
 
-function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email) {
+function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
     usuarioActualId = id;
     usuarioActualNombre = nombre;
+    usuarioActualTipo = tipo || "recurrente";
     document.getElementById("modalNombre").innerText = nombre;
     var btnToggle = document.getElementById("btnToggleActivo");
     btnToggle.textContent = activo ? "Desactivar" : "Activar";
     btnToggle.className = activo
         ? "text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded hover:bg-orange-50"
         : "text-xs text-green-600 hover:text-green-700 transition-colors px-2 py-1 rounded hover:bg-green-50";
+
+    var esEsporadico = usuarioActualTipo === "esporadico";
+    document.getElementById("lblTipoActual").textContent = esEsporadico ? "Esporadico" : "Recurrente";
+    var btnTipo = document.getElementById("btnCambiarTipo");
+    btnTipo.textContent = esEsporadico ? "Cambiar a recurrente" : "Cambiar a esporadico";
+    btnTipo.className = esEsporadico
+        ? "text-xs text-purple-600 hover:text-purple-700 transition-colors px-2 py-1 rounded hover:bg-purple-50"
+        : "text-xs text-gray-400 hover:text-purple-500 transition-colors px-2 py-1 rounded hover:bg-purple-50";
 
     var saldoEl = document.getElementById("modalSaldo");
     if (saldo < 0) {
@@ -536,6 +549,27 @@ async function toggleActivoUsuario() {
     recargarSilencioso();
 }
 
+async function cambiarTipoUsuario() {
+    var nuevoTipo = usuarioActualTipo === "recurrente" ? "esporadico" : "recurrente";
+    var token = await obtenerToken();
+    if (!token) return;
+    var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tipo", {
+        method: "PUT", headers: authHeaders(token),
+        body: JSON.stringify({ tipo: nuevoTipo })
+    });
+    if (!res) return;
+    usuarioActualTipo = nuevoTipo;
+    var esEsporadico = nuevoTipo === "esporadico";
+    document.getElementById("lblTipoActual").textContent = esEsporadico ? "Esporadico" : "Recurrente";
+    var btnTipo = document.getElementById("btnCambiarTipo");
+    btnTipo.textContent = esEsporadico ? "Cambiar a recurrente" : "Cambiar a esporadico";
+    btnTipo.className = esEsporadico
+        ? "text-xs text-purple-600 hover:text-purple-700 transition-colors px-2 py-1 rounded hover:bg-purple-50"
+        : "text-xs text-gray-400 hover:text-purple-500 transition-colors px-2 py-1 rounded hover:bg-purple-50";
+    mostrarToast(usuarioActualNombre + " cambiado a " + nuevoTipo, "success");
+    recargarSilencioso();
+}
+
 async function eliminarUsuario() {
     if (!confirm('Eliminar a "' + usuarioActualNombre + '"? Esta accion no se puede deshacer.')) return;
     var token = await obtenerToken();
@@ -558,6 +592,7 @@ function abrirModalNuevoUsuario() {
 
 function cerrarModalNuevo() {
     document.getElementById("modalNuevo").classList.add("hidden");
+    document.getElementById("selectNuevoTipo").value = "recurrente";
 }
 
 async function crearUsuario() {
@@ -568,7 +603,8 @@ async function crearUsuario() {
     }
     var token = await obtenerToken();
     if (!token) return;
-    var body = { nombre: nombre };
+    var tipo = document.getElementById("selectNuevoTipo").value || "recurrente";
+    var body = { nombre: nombre, tipo: tipo };
     if (sedeActual) body.sede_id = sedeActual;
     var res = await fetchConReintentos(API_URL + "/usuarios/", {
         method: "POST", headers: authHeaders(token),

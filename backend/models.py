@@ -48,6 +48,7 @@ class Usuario(Base):
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
     activo = Column(Integer, default=1)
     email = Column(String, nullable=True)
+    tipo = Column(String, default="recurrente")
     saldos = relationship("Saldo", back_populates="usuario")
     excepciones = relationship("Excepcion", back_populates="usuario")
 
@@ -167,11 +168,25 @@ def migrar_email_usuario():
             except Exception:
                 conn.rollback()
 
+def migrar_tipo_usuario():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT tipo FROM usuarios LIMIT 1"))
+        except Exception:
+            conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE usuarios ADD COLUMN tipo VARCHAR DEFAULT 'recurrente'"))
+                conn.commit()
+                logger.info("Migracion: columna tipo agregada a usuarios")
+            except Exception:
+                conn.rollback()
+
 # Ejecutar migraciones y bootstrap al importar
 try:
     migrar_sedes()
     migrar_activo_usuario()
     migrar_email_usuario()
+    migrar_tipo_usuario()
     bootstrap_superadmin()
 except Exception as e:
     logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")
