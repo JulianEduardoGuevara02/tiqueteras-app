@@ -155,7 +155,7 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
             estado_visual = estado_base
         else:
             if estado_base == "fiado":
-                estado_visual = "sin_cobertura"
+                estado_visual = "fiado" if es_esporadico else "sin_cobertura"
             else:
                 estado_visual = estado_base
 
