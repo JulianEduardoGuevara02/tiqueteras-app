@@ -263,30 +263,26 @@
                         <label class="text-sm font-semibold text-gray-700">Ajustar Tickets</label>
                         <span id="precioTicketBadge" class="hidden text-[11px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md font-medium border border-brand-100"></span>
                     </div>
-                    <!-- Pago con monto (solo si precio > 0) -->
-                    <div id="montoPagadoSection" class="hidden mb-3">
-                        <div class="flex items-center gap-2">
-                            <div class="relative flex-1">
+                    <div class="flex items-center gap-3">
+                        <!-- Valor en COP -->
+                        <div class="flex-1">
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Valor a pagar</p>
+                            <div class="relative">
                                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                                 <input type="number" id="inputMontoPagado" min="0" step="1000"
                                     class="w-full border border-brand-200 bg-brand-50/30 pl-7 pr-3 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm"
-                                    placeholder="Monto en COP" oninput="calcularTicketsDesdeMonto()">
-                            </div>
-                            <div class="text-center shrink-0 bg-gray-50 border border-gray-100 py-2 px-3 rounded-xl min-w-[72px]">
-                                <div class="text-[10px] text-gray-400 uppercase">tiquetes</div>
-                                <div class="text-lg font-bold text-brand-600 leading-tight" id="ticketsEquivalentes">0</div>
+                                    placeholder="0" oninput="sincronizarDesdeMonto()">
                             </div>
                         </div>
-                        <p class="text-center text-[11px] text-gray-300 my-1.5">— o cantidad directa —</p>
+                        <div class="text-gray-300 text-lg font-light mt-4">↔</div>
+                        <!-- Cantidad de tiquetes -->
+                        <div class="flex-1">
+                            <p class="text-[10px] text-gray-400 uppercase tracking-wide mb-1">Tiquetes</p>
+                            <input type="number" id="inputTickets" min="1" step="1"
+                                class="w-full border border-gray-200 bg-gray-50 p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm text-center font-semibold"
+                                placeholder="0" oninput="sincronizarDesdeTickets()">
+                        </div>
                     </div>
-                    <!-- Tickets directo -->
-                    <input type="number" id="inputTickets" min="1"
-                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm"
-                        placeholder="Cantidad de tiquetes">
-                    <!-- Observacion -->
-                    <input type="text" id="inputObservacion"
-                        class="w-full mt-2 border border-gray-200 bg-gray-50 p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm"
-                        placeholder="Observacion (opcional)">
                     <p class="text-[11px] text-gray-400 mt-1.5">Abonar = la persona paga tiquetes. Quitar = corregir error.</p>
                 </div>
 

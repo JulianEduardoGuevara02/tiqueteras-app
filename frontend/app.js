@@ -609,24 +609,19 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
         cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100";
     }
 
-    // Badge precio y seccion monto
+    // Badge precio por tiquete
     var precioBadge = document.getElementById("precioTicketBadge");
-    var montoSection = document.getElementById("montoPagadoSection");
     if (precioTicket > 0) {
         precioBadge.textContent = "$" + precioTicket.toLocaleString("es-CO") + " / tiquete";
         precioBadge.classList.remove("hidden");
-        montoSection.classList.remove("hidden");
     } else {
         precioBadge.classList.add("hidden");
-        montoSection.classList.add("hidden");
     }
 
     document.getElementById("modalCobertura").innerText = formatearFechaCompleta(cobertura);
     document.getElementById("inputEmail").value = email || "";
     document.getElementById("inputTickets").value = "";
     document.getElementById("inputMontoPagado").value = "";
-    document.getElementById("inputObservacion").value = "";
-    document.getElementById("ticketsEquivalentes").textContent = "0";
     document.getElementById("modalPerfil").classList.remove("hidden");
 }
 
@@ -635,14 +630,28 @@ function cerrarModal() {
     document.getElementById("inputTickets").value = "";
     document.getElementById("inputEmail").value = "";
     document.getElementById("inputMontoPagado").value = "";
-    document.getElementById("inputObservacion").value = "";
-    document.getElementById("ticketsEquivalentes").textContent = "0";
 }
 
-function calcularTicketsDesdeMonto() {
+function sincronizarDesdeMonto() {
     var monto = parseFloat(document.getElementById("inputMontoPagado").value) || 0;
     var tickets = precioTicket > 0 ? Math.round(monto / precioTicket) : 0;
-    document.getElementById("ticketsEquivalentes").textContent = tickets;
+    var inputTickets = document.getElementById("inputTickets");
+    inputTickets.value = tickets > 0 ? tickets : "";
+}
+
+function sincronizarDesdeTickets() {
+    var raw = document.getElementById("inputTickets").value;
+    var tickets = parseInt(raw) || 0;
+    // Forzar entero
+    if (raw !== "" && String(tickets) !== raw.replace(/\..*/, "")) {
+        document.getElementById("inputTickets").value = tickets || "";
+    }
+    var inputMonto = document.getElementById("inputMontoPagado");
+    if (precioTicket > 0 && tickets > 0) {
+        inputMonto.value = tickets * precioTicket;
+    } else {
+        inputMonto.value = "";
+    }
 }
 
 async function guardarEmail() {
@@ -659,36 +668,18 @@ async function guardarEmail() {
 }
 
 async function ajustarTickets(accion) {
+    var tickets = parseInt(document.getElementById("inputTickets").value) || 0;
     var monto = parseFloat(document.getElementById("inputMontoPagado").value) || 0;
-    var cantidadDirecta = parseInt(document.getElementById("inputTickets").value) || 0;
-    var observacion = document.getElementById("inputObservacion").value.trim();
 
-    var cantidad, montoFinal, precioSnap;
-
-    if (monto > 0 && precioTicket > 0 && accion === "agregar") {
-        // Pago con monto en COP: calcular tickets automaticamente
-        cantidad = Math.round(monto / precioTicket);
-        montoFinal = monto;
-        precioSnap = precioTicket;
-    } else if (cantidadDirecta > 0) {
-        // Ajuste directo por cantidad
-        cantidad = cantidadDirecta;
-        montoFinal = null;
-        precioSnap = precioTicket > 0 ? precioTicket : null;
-    } else {
-        mostrarToast("Ingresa un monto o cantidad valida mayor a 0", "error");
+    if (tickets <= 0) {
+        mostrarToast("Ingresa una cantidad de tiquetes mayor a 0", "error");
         return;
     }
 
-    if (accion === "quitar") cantidad = -Math.abs(cantidad);
-
-    var token = await obtenerToken();
-    if (!token) return;
-
+    var cantidad = accion === "quitar" ? -tickets : tickets;
     var body = { cantidad: cantidad };
-    if (precioSnap) body.precio_snapshot = precioSnap;
-    if (montoFinal) body.monto_pagado = montoFinal;
-    if (observacion) body.observacion = observacion;
+    if (precioTicket > 0) body.precio_snapshot = precioTicket;
+    if (monto > 0) body.monto_pagado = monto;
 
     var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tickets", {
         method: "POST", headers: authHeaders(token),
