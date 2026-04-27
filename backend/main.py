@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from typing import Optional
 import io
 import openpyxl
-from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria, Sede, AdminSede
+from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria, Sede, AdminSede, ConfiguracionSede, ComprasMercado
 from auth import verificar_token
 
 app = FastAPI(title="API Tiqueteras")
@@ -63,7 +63,12 @@ class UsuarioCreate(BaseModel):
     sede_id: Optional[int] = None
     tipo: str = "recurrente"
 
-class SaldoCreate(BaseModel): cantidad: int
+class SaldoCreate(BaseModel):
+    cantidad: Optional[int] = None
+    precio_snapshot: Optional[float] = None
+    monto_pagado: Optional[float] = None
+    observacion: Optional[str] = None
+
 class ExcepcionToggle(BaseModel): fecha: str
 class DiaGlobalToggle(BaseModel): fecha: str
 class EmailUpdate(BaseModel): email: Optional[str] = None
@@ -82,10 +87,21 @@ class AdminSedeUpdate(BaseModel):
     sede_id: Optional[int] = None
     rol: Optional[str] = None
 
+class PrecioTicketUpdate(BaseModel):
+    precio_ticket: float
+
+class CompraCreate(BaseModel):
+    monto: float
+    descripcion: Optional[str] = None
+    observacion: Optional[str] = None
+    sede_id: Optional[int] = None
+
 # === Proyeccion (sin cambios) ===
 
 def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dias_a_mostrar: int, dias_globales: set):
-    es_esporadico = getattr(usuario, "tipo", "recurrente") == "esporadico"
+    tipo = getattr(usuario, "tipo", "recurrente") or "recurrente"
+    es_esporadico = tipo == "esporadico"
+    es_empresa = tipo == "empresa"
     saldos = usuario.saldos
     total_tickets = sum(s.cantidad_tickets for s in saldos)
 
@@ -118,12 +134,22 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         come = False
         estado_base = ""
 
-        if es_esporadico:
-            # Esporadico: solo come si tiene excepcion "Asistencia"
+        if es_empresa:
+            # Cuenta empresa: come igual que recurrente pero sin descontar tickets
+            if es_global and tipo_exc != "Come_Global":
+                estado_base = "global_blocked"
+            elif tipo_exc == "Ausencia":
+                estado_base = "absence"
+            elif es_domingo and tipo_exc != "Domingo_Habilitado":
+                estado_base = "sunday_blocked"
+            else:
+                come = True
+                estado_base = "empresa"
+        elif es_esporadico:
             if tipo_exc == "Asistencia":
                 come = True
             else:
-                estado_base = "sunday_blocked"  # gris neutro
+                estado_base = "sunday_blocked"
         else:
             # Recurrente: logica original
             if es_global and tipo_exc != "Come_Global":
@@ -135,7 +161,7 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
             else:
                 come = True
 
-        if come:
+        if come and not es_empresa:
             if tickets_restantes > 0:
                 tickets_restantes -= 1
                 estado_base = "covered"
@@ -147,6 +173,7 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
 
         if fecha_iter < hoy:
             if estado_base == "covered": estado_visual = "past_covered"
+            elif estado_base == "empresa": estado_visual = "past_empresa"
             elif estado_base == "fiado": estado_visual = "past_fiado"
             elif estado_base == "absence": estado_visual = "past_absence"
             elif estado_base == "global_blocked": estado_visual = "past_global_blocked"
@@ -169,7 +196,7 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     calendario = []
     curr_date = fecha_inicio_visual
     for _ in range(dias_a_mostrar):
-        if es_esporadico:
+        if es_esporadico or es_empresa:
             default = "sunday_blocked"
         else:
             default = "past_absence" if curr_date < hoy else "sin_cobertura"
@@ -224,7 +251,7 @@ def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), auth_user:
     ).first()
     if existente:
         raise HTTPException(status_code=400, detail=f'Ya existe "{user.nombre}" en esta sede')
-    tipo = user.tipo if user.tipo in ("recurrente", "esporadico") else "recurrente"
+    tipo = user.tipo if user.tipo in ("recurrente", "esporadico", "empresa") else "recurrente"
     db.add(Usuario(nombre=user.nombre, sede_id=sede_id, tipo=tipo))
     registrar_log(db, admin.email, "Crear persona", user.nombre, sede_id)
     db.commit()
@@ -237,11 +264,38 @@ def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(g
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     verificar_acceso_usuario(admin, usuario)
-    db.add(Saldo(usuario_id=usuario_id, cantidad_tickets=saldo.cantidad, fecha_compra=date.today()))
-    signo = "+" if saldo.cantidad > 0 else ""
-    registrar_log(db, admin.email, "Ajustar tickets", f"{signo}{saldo.cantidad} tickets a {usuario.nombre}", usuario.sede_id)
+
+    # Calcular cantidad desde monto si se provee
+    if saldo.monto_pagado is not None and saldo.monto_pagado > 0:
+        config = db.query(ConfiguracionSede).filter_by(sede_id=usuario.sede_id).first()
+        precio = config.precio_ticket if config and config.precio_ticket > 0 else 0.0
+        if precio <= 0:
+            raise HTTPException(status_code=400, detail="Configura el precio del tiquete antes de registrar un pago por monto")
+        cantidad = round(saldo.monto_pagado / precio)
+        precio_snap = precio
+        monto = saldo.monto_pagado
+    elif saldo.cantidad is not None:
+        cantidad = saldo.cantidad
+        precio_snap = saldo.precio_snapshot
+        monto = saldo.monto_pagado
+    else:
+        raise HTTPException(status_code=400, detail="Debes indicar cantidad o monto_pagado")
+
+    db.add(Saldo(
+        usuario_id=usuario_id,
+        cantidad_tickets=cantidad,
+        fecha_compra=date.today(),
+        precio_snapshot=precio_snap,
+        monto_pagado=monto,
+        observacion=saldo.observacion,
+    ))
+    signo = "+" if cantidad > 0 else ""
+    detalle = f"{signo}{cantidad} tickets a {usuario.nombre}"
+    if saldo.observacion:
+        detalle += f" — {saldo.observacion}"
+    registrar_log(db, admin.email, "Ajustar tickets", detalle, usuario.sede_id)
     db.commit()
-    return {"message": "Tickets ajustados"}
+    return {"message": "Tickets ajustados", "cantidad": cantidad}
 
 @app.put("/usuarios/{usuario_id}/email")
 def actualizar_email(usuario_id: int, req: EmailUpdate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
@@ -420,8 +474,8 @@ def cambiar_tipo_usuario(usuario_id: int, req: TipoUpdate, db: Session = Depends
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     verificar_acceso_usuario(admin, usuario)
-    if req.tipo not in ("recurrente", "esporadico"):
-        raise HTTPException(status_code=400, detail="Tipo debe ser 'recurrente' o 'esporadico'")
+    if req.tipo not in ("recurrente", "esporadico", "empresa"):
+        raise HTTPException(status_code=400, detail="Tipo debe ser 'recurrente', 'esporadico' o 'empresa'")
     usuario.tipo = req.tipo
     registrar_log(db, admin.email, "Cambiar tipo", f"{usuario.nombre}: {req.tipo}", usuario.sede_id)
     db.commit()
@@ -610,3 +664,164 @@ def eliminar_admin(admin_id: int, db: Session = Depends(get_db), auth_user: dict
     registrar_log(db, admin.email, "Eliminar admin", email_target)
     db.commit()
     return {"message": "Admin eliminado"}
+
+# === Endpoints: Configuracion de precio ===
+
+@app.get("/configuracion")
+def obtener_configuracion(
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+    config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
+    return {"precio_ticket": config.precio_ticket if config else 0.0, "sede_id": sid}
+
+@app.put("/configuracion/precio-ticket")
+def actualizar_precio_ticket(
+    req: PrecioTicketUpdate,
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+    if req.precio_ticket < 0:
+        raise HTTPException(status_code=400, detail="El precio no puede ser negativo")
+    config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
+    if config:
+        precio_anterior = config.precio_ticket
+        config.precio_ticket = req.precio_ticket
+    else:
+        precio_anterior = 0.0
+        db.add(ConfiguracionSede(sede_id=sid, precio_ticket=req.precio_ticket))
+    registrar_log(db, admin.email, "Cambiar precio tiquete",
+                  f"${precio_anterior:,.0f} → ${req.precio_ticket:,.0f} COP", sid)
+    db.commit()
+    return {"precio_ticket": req.precio_ticket, "sede_id": sid}
+
+# === Endpoints: Compras de mercado ===
+
+@app.post("/mercado/")
+def registrar_compra(
+    req: CompraCreate,
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, req.sede_id or sede_id)
+    if req.monto <= 0:
+        raise HTTPException(status_code=400, detail="El monto debe ser mayor a 0")
+    compra = ComprasMercado(
+        monto=req.monto,
+        descripcion=req.descripcion,
+        observacion=req.observacion,
+        sede_id=sid,
+        admin_email=admin.email,
+    )
+    db.add(compra)
+    detalle = f"${req.monto:,.0f} COP"
+    if req.descripcion:
+        detalle += f" — {req.descripcion}"
+    registrar_log(db, admin.email, "Compra mercado", detalle, sid)
+    db.commit()
+    db.refresh(compra)
+    return {
+        "id": compra.id,
+        "monto": compra.monto,
+        "descripcion": compra.descripcion,
+        "observacion": compra.observacion,
+        "fecha": compra.fecha.strftime("%Y-%m-%d %H:%M"),
+    }
+
+@app.delete("/mercado/{compra_id}")
+def eliminar_compra(
+    compra_id: int,
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+    compra = db.query(ComprasMercado).filter(ComprasMercado.id == compra_id).first()
+    if not compra:
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
+    if admin.rol != "superadmin" and compra.sede_id != admin.sede_id:
+        raise HTTPException(status_code=403, detail="Sin acceso a esta compra")
+    registrar_log(db, admin.email, "Eliminar compra mercado",
+                  f"${compra.monto:,.0f} COP — {compra.descripcion or 'sin descripcion'}", sid)
+    db.delete(compra)
+    db.commit()
+    return {"message": "Compra eliminada"}
+
+# === Endpoints: Resumen financiero quincenal ===
+
+@app.get("/finanzas/resumen")
+def resumen_finanzas(
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+
+    # Quincena actual: 1-15 o 16-fin de mes
+    hoy = date.today()
+    if hoy.day <= 15:
+        inicio = date(hoy.year, hoy.month, 1)
+        fin = date(hoy.year, hoy.month, 15)
+    else:
+        inicio = date(hoy.year, hoy.month, 16)
+        mes_siguiente = hoy.month % 12 + 1
+        anio_siguiente = hoy.year + (1 if hoy.month == 12 else 0)
+        fin = date(anio_siguiente, mes_siguiente, 1) - timedelta(days=1)
+
+    inicio_dt = datetime.combine(inicio, datetime.min.time())
+    fin_dt = datetime.combine(fin, datetime.max.time())
+
+    # Ingresos: saldos positivos con monto en el periodo
+    q_saldos = db.query(Saldo).join(Usuario).filter(
+        Saldo.fecha_compra >= inicio,
+        Saldo.fecha_compra <= fin,
+        Saldo.monto_pagado != None,
+        Saldo.monto_pagado > 0,
+    )
+    if sid is not None:
+        q_saldos = q_saldos.filter(Usuario.sede_id == sid)
+    saldos_periodo = q_saldos.all()
+    total_pagos = sum(s.monto_pagado for s in saldos_periodo if s.monto_pagado)
+
+    # Egresos: compras de mercado en el periodo
+    q_compras = db.query(ComprasMercado).filter(
+        ComprasMercado.fecha >= inicio_dt,
+        ComprasMercado.fecha <= fin_dt,
+    )
+    if sid is not None:
+        q_compras = q_compras.filter(ComprasMercado.sede_id == sid)
+    compras_periodo = q_compras.order_by(desc(ComprasMercado.fecha)).all()
+    total_compras = sum(c.monto for c in compras_periodo)
+
+    config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
+    precio = config.precio_ticket if config else 0.0
+
+    return {
+        "periodo_inicio": str(inicio),
+        "periodo_fin": str(fin),
+        "precio_ticket": precio,
+        "total_pagos": total_pagos,
+        "total_compras": total_compras,
+        "saldo_caja": total_pagos - total_compras,
+        "compras": [
+            {
+                "id": c.id,
+                "fecha": c.fecha.strftime("%Y-%m-%d %H:%M"),
+                "monto": c.monto,
+                "descripcion": c.descripcion or "",
+                "observacion": c.observacion or "",
+                "admin_email": c.admin_email,
+            }
+            for c in compras_periodo
+        ],
+    }

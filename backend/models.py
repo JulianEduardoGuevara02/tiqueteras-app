@@ -1,7 +1,7 @@
 # models.py
 import os
 import logging
-from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, ForeignKey, text
+from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, ForeignKey, Float, text
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 import datetime
 
@@ -9,11 +9,9 @@ logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./tiqueteras.db")
 
-# Asegurar que PostgreSQL use el driver psycopg (v3)
 if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
 
-# SQLite necesita check_same_thread=False, PostgreSQL con pooler necesita prepare_threshold=0
 if DATABASE_URL.startswith("sqlite"):
     engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 else:
@@ -48,7 +46,7 @@ class Usuario(Base):
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
     activo = Column(Integer, default=1)
     email = Column(String, nullable=True)
-    tipo = Column(String, default="recurrente")
+    tipo = Column(String, default="recurrente")  # recurrente | esporadico | empresa
     saldos = relationship("Saldo", back_populates="usuario")
     excepciones = relationship("Excepcion", back_populates="usuario")
 
@@ -58,6 +56,11 @@ class Saldo(Base):
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
     cantidad_tickets = Column(Integer)
     fecha_compra = Column(Date, default=datetime.date.today)
+    # Snapshot del precio en el momento del pago (nunca cambia con ajustes futuros)
+    precio_snapshot = Column(Float, nullable=True)
+    # Monto en COP efectivamente pagado (para el flujo de caja)
+    monto_pagado = Column(Float, nullable=True)
+    observacion = Column(String, nullable=True)
     usuario = relationship("Usuario", back_populates="saldos")
 
 class Excepcion(Base):
@@ -83,14 +86,31 @@ class LogAuditoria(Base):
     detalle = Column(String)
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True)
 
+class ConfiguracionSede(Base):
+    """Precio del tiquete por sede. El snapshot en Saldo preserva el precio historico."""
+    __tablename__ = "configuracion_sede"
+    id = Column(Integer, primary_key=True, index=True)
+    sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, unique=True)
+    precio_ticket = Column(Float, default=0.0)
+
+class ComprasMercado(Base):
+    """Registro de compras de mercado/insumos. El dinero sale del fondo de pagos."""
+    __tablename__ = "compras_mercado"
+    id = Column(Integer, primary_key=True, index=True)
+    monto = Column(Float, nullable=False)
+    descripcion = Column(String, nullable=True)
+    observacion = Column(String, nullable=True)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, index=True)
+    admin_email = Column(String)
+
 # === Crear tablas nuevas ===
 Base.metadata.create_all(bind=engine)
 
-# === Migracion: agregar columnas a tablas existentes ===
+# === Migraciones ===
 
 def migrar_sedes():
     with engine.connect() as conn:
-        # Verificar si ya se migro
         try:
             conn.execute(text("SELECT sede_id FROM usuarios LIMIT 1"))
             return
@@ -151,7 +171,6 @@ def migrar_activo_usuario():
             try:
                 conn.execute(text("ALTER TABLE usuarios ADD COLUMN activo INTEGER DEFAULT 1"))
                 conn.commit()
-                logger.info("Migracion: columna activo agregada a usuarios")
             except Exception:
                 conn.rollback()
 
@@ -164,7 +183,6 @@ def migrar_email_usuario():
             try:
                 conn.execute(text("ALTER TABLE usuarios ADD COLUMN email VARCHAR"))
                 conn.commit()
-                logger.info("Migracion: columna email agregada a usuarios")
             except Exception:
                 conn.rollback()
 
@@ -177,7 +195,28 @@ def migrar_tipo_usuario():
             try:
                 conn.execute(text("ALTER TABLE usuarios ADD COLUMN tipo VARCHAR DEFAULT 'recurrente'"))
                 conn.commit()
-                logger.info("Migracion: columna tipo agregada a usuarios")
+            except Exception:
+                conn.rollback()
+
+def migrar_saldo_precio():
+    """Agrega precio_snapshot, monto_pagado y observacion a saldos existentes."""
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT precio_snapshot FROM saldos LIMIT 1"))
+        except Exception:
+            conn.rollback()
+            for col in [
+                "ALTER TABLE saldos ADD COLUMN precio_snapshot REAL",
+                "ALTER TABLE saldos ADD COLUMN monto_pagado REAL",
+                "ALTER TABLE saldos ADD COLUMN observacion VARCHAR",
+            ]:
+                try:
+                    conn.execute(text(col))
+                except Exception:
+                    conn.rollback()
+            try:
+                conn.commit()
+                logger.info("Migracion: columnas de precio agregadas a saldos")
             except Exception:
                 conn.rollback()
 
@@ -187,6 +226,7 @@ try:
     migrar_activo_usuario()
     migrar_email_usuario()
     migrar_tipo_usuario()
+    migrar_saldo_precio()
     bootstrap_superadmin()
 except Exception as e:
     logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")

@@ -18,6 +18,11 @@ var sedeActual = null;
 var verInactivos = false;
 var offsetDias = 0;
 
+// === Finanzas y ordenamiento ===
+var precioTicket = 0;
+var sortMode = "nombre";
+var ultimosDatosDashboard = null;
+
 // === Toasts ===
 
 function mostrarToast(mensaje, tipo) {
@@ -185,6 +190,7 @@ async function cargarPerfil() {
     }
 
     actualizarUISegunPerfil();
+    cargarConfiguracion();
     cargarDashboard();
 }
 
@@ -220,7 +226,19 @@ function actualizarUISegunPerfil() {
 function cambiarSede(nuevoSedeId) {
     sedeActual = parseInt(nuevoSedeId);
     offsetDias = 0;
+    cargarConfiguracion();
     cargarDashboard();
+}
+
+async function cargarConfiguracion() {
+    var token = await obtenerToken();
+    if (!token) return;
+    var url = API_URL + "/configuracion";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
+    if (!res || res.status === 403) return;
+    var data = await res.json();
+    precioTicket = data.precio_ticket || 0;
 }
 
 function navegarCalendario(dias) {
@@ -285,6 +303,7 @@ async function recargarSilencioso() {
         document.getElementById("rangoFechas").textContent = primera + " - " + ultima;
     }
 
+    ultimosDatosDashboard = data;
     if (data.usuarios.length === 0) {
         document.getElementById("emptyState").classList.remove("hidden");
         document.getElementById("tableContainer").classList.add("hidden");
@@ -328,6 +347,7 @@ async function cargarDashboard() {
         btnHoy.classList.add("hidden");
     }
 
+    ultimosDatosDashboard = data;
     if (data.usuarios.length === 0) {
         document.getElementById("emptyState").classList.remove("hidden");
         document.getElementById("tableContainer").classList.add("hidden");
@@ -335,6 +355,24 @@ async function cargarDashboard() {
         document.getElementById("emptyState").classList.add("hidden");
         document.getElementById("tableContainer").classList.remove("hidden");
         renderizarCalendario(data);
+    }
+}
+
+function toggleSort() {
+    sortMode = sortMode === "nombre" ? "saldo_asc" : "nombre";
+    var btn = document.getElementById("btnSort");
+    var txt = document.getElementById("txtSort");
+    if (sortMode === "saldo_asc") {
+        btn.classList.remove("bg-white", "text-gray-700", "border-gray-200");
+        btn.classList.add("bg-brand-50", "text-brand-600", "border-brand-200");
+        txt.textContent = "Tiquetes ↑";
+    } else {
+        btn.classList.remove("bg-brand-50", "text-brand-600", "border-brand-200");
+        btn.classList.add("bg-white", "text-gray-700", "border-gray-200");
+        txt.textContent = "A-Z";
+    }
+    if (ultimosDatosDashboard) {
+        renderizarCalendario(ultimosDatosDashboard);
     }
 }
 
@@ -365,23 +403,33 @@ function renderizarCalendario(data) {
     htmlHead += '</tr>';
     thead.innerHTML = htmlHead;
 
+    // Ordenar usuarios segun el modo activo
+    var usuarios = data.usuarios.slice();
+    if (sortMode === "saldo_asc") {
+        usuarios.sort(function(a, b) { return a.saldo_actual - b.saldo_actual; });
+    } else {
+        usuarios.sort(function(a, b) { return a.nombre.localeCompare(b.nombre, "es"); });
+    }
+
     var htmlBody = "";
-    data.usuarios.forEach(function(user) {
+    usuarios.forEach(function(user) {
         var nombreSafe = escaparHtml(user.nombre);
         var esInactivo = user.activo === 0;
         var esEsporadico = user.tipo === "esporadico";
-        var saldoColor = user.saldo_actual < 0 ? "text-red-500" : "text-brand-600";
-        var saldoSign = user.saldo_actual < 0 ? "" : "+";
-        var saldoBadge = '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
+        var esEmpresa = user.tipo === "empresa";
+        var saldoColor = user.saldo_actual < 0 ? "text-red-500" : (esEmpresa ? "text-teal-600" : "text-brand-600");
+        var saldoSign = user.saldo_actual < 0 ? "" : (esEmpresa ? "" : "+");
+        var saldoBadge = esEmpresa ? '' : '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
         var inactivoBadge = esInactivo ? '<span class="text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Inactivo</span>' : '';
         var esporadicoBadge = (!esInactivo && esEsporadico) ? '<span class="text-[10px] text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Esporadico</span>' : '';
+        var empresaBadge = (!esInactivo && esEmpresa) ? '<span class="text-[10px] text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Empresa</span>' : '';
         var rowOpacity = esInactivo ? "opacity-50" : "";
 
         htmlBody += '<tr class="border-b border-gray-100 user-row hover:bg-gray-50/50 transition-colors ' + rowOpacity + '" data-nombre="' + nombreSafe.toLowerCase() + '">'
             + '<td class="p-2.5 font-medium cursor-pointer text-gray-700 hover:text-brand-600 sticky left-0 bg-white z-10 border-r border-gray-200 transition-colors"'
             + ' onclick="abrirModalPerfil(' + user.id + ',\'' + nombreSafe.replace(/'/g, "\\'") + '\',' + user.saldo_actual + ',\'' + escaparHtml(user.fecha_cobertura) + '\',' + user.activo + ',\'' + escaparHtml(user.email || '').replace(/'/g, "\\'") + '\',\'' + (user.tipo || 'recurrente') + '\')">'
             + '<div class="flex items-center">'
-            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge + esporadicoBadge
+            + '<span class="truncate max-w-[120px]">' + nombreSafe + '</span>' + saldoBadge + inactivoBadge + esporadicoBadge + empresaBadge
             + '</div></td>';
 
         user.calendario.forEach(function(dia) {
@@ -395,11 +443,13 @@ function renderizarCalendario(data) {
                 colorClass = "bg-white border border-gray-100";
 
                 if (dia.estado === "past_covered") { colorClass = "bg-green-100 border border-green-200"; textColor = "text-green-400"; }
+                if (dia.estado === "past_empresa") { colorClass = "bg-teal-100 border border-teal-200"; textColor = "text-teal-400"; }
                 if (dia.estado === "past_fiado") { colorClass = "bg-orange-100 border border-orange-200"; textColor = "text-orange-400"; }
                 if (dia.estado === "past_absence") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
                 if (dia.estado === "past_global_blocked") { colorClass = "bg-red-100 border border-red-200"; textColor = "text-red-300"; }
 
                 if (dia.estado === "covered") { colorClass = "bg-green-500 border border-green-600"; textColor = "text-white"; }
+                if (dia.estado === "empresa") { colorClass = "bg-teal-500 border border-teal-600"; textColor = "text-white"; }
                 if (dia.estado === "fiado") { colorClass = "bg-orange-400 border border-orange-500"; textColor = "text-white"; }
                 if (dia.estado === "sin_cobertura") { colorClass = "bg-gray-100 border border-gray-200"; textColor = "text-gray-400"; }
                 if (dia.estado === "absence") { colorClass = "bg-red-500 border border-red-600"; textColor = "text-white"; }
@@ -469,22 +519,40 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
     usuarioActualId = id;
     usuarioActualNombre = nombre;
     usuarioActualTipo = tipo || "recurrente";
+
     document.getElementById("modalNombre").innerText = nombre;
+
     var btnToggle = document.getElementById("btnToggleActivo");
     btnToggle.textContent = activo ? "Desactivar" : "Activar";
     btnToggle.className = activo
         ? "text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded hover:bg-orange-50"
         : "text-xs text-green-600 hover:text-green-700 transition-colors px-2 py-1 rounded hover:bg-green-50";
 
-    var esEsporadico = usuarioActualTipo === "esporadico";
-    document.getElementById("lblTipoActual").textContent = esEsporadico ? "Esporadico" : "Recurrente";
-    var btnTipo = document.getElementById("btnCambiarTipo");
-    btnTipo.textContent = esEsporadico ? "Cambiar a recurrente" : "Cambiar a esporadico";
-    btnTipo.className = esEsporadico
-        ? "text-xs text-purple-600 hover:text-purple-700 transition-colors px-2 py-1 rounded hover:bg-purple-50"
-        : "text-xs text-gray-400 hover:text-purple-500 transition-colors px-2 py-1 rounded hover:bg-purple-50";
+    // Switch de tipo vs badge empresa
+    var switchRow = document.getElementById("tipoSwitchRow");
+    var empresaRow = document.getElementById("tipoEmpresaRow");
+    var switchEl = document.getElementById("switchTipo");
+    if (usuarioActualTipo === "empresa") {
+        switchRow.classList.add("hidden");
+        empresaRow.classList.remove("hidden");
+    } else {
+        switchRow.classList.remove("hidden");
+        empresaRow.classList.add("hidden");
+        var esEsporadico = usuarioActualTipo === "esporadico";
+        if (esEsporadico) {
+            switchEl.classList.add("activo");
+            document.getElementById("lblTipoIzq").className = "text-sm text-gray-400";
+            document.getElementById("lblTipoDer").className = "text-sm font-medium text-purple-700";
+        } else {
+            switchEl.classList.remove("activo");
+            document.getElementById("lblTipoIzq").className = "text-sm font-medium text-gray-700";
+            document.getElementById("lblTipoDer").className = "text-sm text-gray-400";
+        }
+    }
 
+    // Balance
     var saldoEl = document.getElementById("modalSaldo");
+    var saldoCOPEl = document.getElementById("modalSaldoCOP");
     if (saldo < 0) {
         saldoEl.innerText = Math.abs(saldo) + " en deuda";
         saldoEl.className = "text-2xl font-bold mt-1 text-red-600";
@@ -493,8 +561,33 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
         saldoEl.className = "text-2xl font-bold mt-1 text-brand-600";
     }
 
+    // Equivalencia en COP
+    if (precioTicket > 0 && usuarioActualTipo !== "empresa") {
+        var cop = Math.abs(saldo) * precioTicket;
+        saldoCOPEl.textContent = (saldo < 0 ? "Deuda: " : "≈ ") + "$" + cop.toLocaleString("es-CO") + " COP";
+        saldoCOPEl.classList.remove("hidden");
+    } else {
+        saldoCOPEl.classList.add("hidden");
+    }
+
+    // Badge precio y seccion monto
+    var precioBadge = document.getElementById("precioTicketBadge");
+    var montoSection = document.getElementById("montoPagadoSection");
+    if (precioTicket > 0) {
+        precioBadge.textContent = "$" + precioTicket.toLocaleString("es-CO") + " / tiquete";
+        precioBadge.classList.remove("hidden");
+        montoSection.classList.remove("hidden");
+    } else {
+        precioBadge.classList.add("hidden");
+        montoSection.classList.add("hidden");
+    }
+
     document.getElementById("modalCobertura").innerText = formatearFechaCompleta(cobertura);
     document.getElementById("inputEmail").value = email || "";
+    document.getElementById("inputTickets").value = "";
+    document.getElementById("inputMontoPagado").value = "";
+    document.getElementById("inputObservacion").value = "";
+    document.getElementById("ticketsEquivalentes").textContent = "0";
     document.getElementById("modalPerfil").classList.remove("hidden");
 }
 
@@ -502,6 +595,15 @@ function cerrarModal() {
     document.getElementById("modalPerfil").classList.add("hidden");
     document.getElementById("inputTickets").value = "";
     document.getElementById("inputEmail").value = "";
+    document.getElementById("inputMontoPagado").value = "";
+    document.getElementById("inputObservacion").value = "";
+    document.getElementById("ticketsEquivalentes").textContent = "0";
+}
+
+function calcularTicketsDesdeMonto() {
+    var monto = parseFloat(document.getElementById("inputMontoPagado").value) || 0;
+    var tickets = precioTicket > 0 ? Math.round(monto / precioTicket) : 0;
+    document.getElementById("ticketsEquivalentes").textContent = tickets;
 }
 
 async function guardarEmail() {
@@ -518,19 +620,42 @@ async function guardarEmail() {
 }
 
 async function ajustarTickets(accion) {
-    var cantidad = parseInt(document.getElementById("inputTickets").value);
-    if (!cantidad || cantidad <= 0) {
-        mostrarToast("Ingresa un numero valido mayor a 0", "error");
+    var monto = parseFloat(document.getElementById("inputMontoPagado").value) || 0;
+    var cantidadDirecta = parseInt(document.getElementById("inputTickets").value) || 0;
+    var observacion = document.getElementById("inputObservacion").value.trim();
+
+    var cantidad, montoFinal, precioSnap;
+
+    if (monto > 0 && precioTicket > 0 && accion === "agregar") {
+        // Pago con monto en COP: calcular tickets automaticamente
+        cantidad = Math.round(monto / precioTicket);
+        montoFinal = monto;
+        precioSnap = precioTicket;
+    } else if (cantidadDirecta > 0) {
+        // Ajuste directo por cantidad
+        cantidad = cantidadDirecta;
+        montoFinal = null;
+        precioSnap = precioTicket > 0 ? precioTicket : null;
+    } else {
+        mostrarToast("Ingresa un monto o cantidad valida mayor a 0", "error");
         return;
     }
-    if (accion === "quitar") cantidad = -cantidad;
+
+    if (accion === "quitar") cantidad = -Math.abs(cantidad);
 
     var token = await obtenerToken();
     if (!token) return;
-    await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tickets", {
+
+    var body = { cantidad: cantidad };
+    if (precioSnap) body.precio_snapshot = precioSnap;
+    if (montoFinal) body.monto_pagado = montoFinal;
+    if (observacion) body.observacion = observacion;
+
+    var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tickets", {
         method: "POST", headers: authHeaders(token),
-        body: JSON.stringify({ cantidad: cantidad })
+        body: JSON.stringify(body)
     });
+    if (!res) return;
     cerrarModal();
     mostrarToast(accion === "agregar" ? "Tickets abonados correctamente" : "Tickets removidos correctamente", "success");
     recargarSilencioso();
@@ -550,6 +675,7 @@ async function toggleActivoUsuario() {
 }
 
 async function cambiarTipoUsuario() {
+    if (usuarioActualTipo === "empresa") return;
     var nuevoTipo = usuarioActualTipo === "recurrente" ? "esporadico" : "recurrente";
     var token = await obtenerToken();
     if (!token) return;
@@ -560,12 +686,16 @@ async function cambiarTipoUsuario() {
     if (!res) return;
     usuarioActualTipo = nuevoTipo;
     var esEsporadico = nuevoTipo === "esporadico";
-    document.getElementById("lblTipoActual").textContent = esEsporadico ? "Esporadico" : "Recurrente";
-    var btnTipo = document.getElementById("btnCambiarTipo");
-    btnTipo.textContent = esEsporadico ? "Cambiar a recurrente" : "Cambiar a esporadico";
-    btnTipo.className = esEsporadico
-        ? "text-xs text-purple-600 hover:text-purple-700 transition-colors px-2 py-1 rounded hover:bg-purple-50"
-        : "text-xs text-gray-400 hover:text-purple-500 transition-colors px-2 py-1 rounded hover:bg-purple-50";
+    var switchEl = document.getElementById("switchTipo");
+    if (esEsporadico) {
+        switchEl.classList.add("activo");
+        document.getElementById("lblTipoIzq").className = "text-sm text-gray-400";
+        document.getElementById("lblTipoDer").className = "text-sm font-medium text-purple-700";
+    } else {
+        switchEl.classList.remove("activo");
+        document.getElementById("lblTipoIzq").className = "text-sm font-medium text-gray-700";
+        document.getElementById("lblTipoDer").className = "text-sm text-gray-400";
+    }
     mostrarToast(usuarioActualNombre + " cambiado a " + nuevoTipo, "success");
     recargarSilencioso();
 }
@@ -958,4 +1088,138 @@ function abrirRecordatorios() {
 
 function cerrarRecordatorios() {
     document.getElementById("modalRecordatorios").classList.add("hidden");
+}
+
+// === Finanzas ===
+
+function abrirFinanzas() {
+    document.getElementById("modalFinanzas").classList.remove("hidden");
+    cargarFinanzas();
+}
+
+function cerrarFinanzas() {
+    document.getElementById("modalFinanzas").classList.add("hidden");
+}
+
+async function cargarFinanzas() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var url = API_URL + "/finanzas/resumen";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+
+    var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
+    if (!res || res.status === 403) return;
+
+    var data = await res.json();
+
+    // Actualizar precio global y campo
+    precioTicket = data.precio_ticket || 0;
+    document.getElementById("inputPrecioTicket").value = precioTicket > 0 ? precioTicket : "";
+
+    // Periodo
+    var inicio = data.periodo_inicio ? data.periodo_inicio.slice(0, 10) : "";
+    var fin = data.periodo_fin ? data.periodo_fin.slice(0, 10) : "";
+    if (inicio && fin) {
+        var partsI = inicio.split("-"), partsF = fin.split("-");
+        document.getElementById("finanzasPeriodoLabel").textContent =
+            "Quincena: " + partsI[2] + "/" + partsI[1] + " — " + partsF[2] + "/" + partsF[1] + "/" + partsF[0];
+    }
+
+    // Tarjetas de resumen
+    var fmt = function(n) { return "$" + (n || 0).toLocaleString("es-CO"); };
+    document.getElementById("finanzasIngresos").textContent = fmt(data.total_pagos);
+    document.getElementById("finanzasEgresos").textContent = fmt(data.total_compras);
+    var saldoCaja = data.saldo_caja || 0;
+    var saldoEl = document.getElementById("finanzasSaldo");
+    saldoEl.textContent = fmt(saldoCaja);
+    saldoEl.className = saldoCaja < 0
+        ? "text-xl font-bold text-red-700 mt-1"
+        : "text-xl font-bold text-brand-700 mt-1";
+
+    // Lista de compras
+    var listaEl = document.getElementById("finanzasComprasList");
+    if (!data.compras || data.compras.length === 0) {
+        listaEl.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Sin compras registradas en este periodo</p>';
+        return;
+    }
+    var html = "";
+    data.compras.forEach(function(c) {
+        html += '<div class="flex items-start justify-between py-2.5 border-b border-gray-50 last:border-0 gap-3">'
+            + '<div class="flex-1 min-w-0">'
+            + '<div class="flex items-center gap-2">'
+            + '<span class="text-sm font-semibold text-gray-800">' + fmt(c.monto) + '</span>'
+            + (c.descripcion ? '<span class="text-xs text-gray-500 truncate">' + escaparHtml(c.descripcion) + '</span>' : '')
+            + '</div>'
+            + (c.observacion ? '<p class="text-[11px] text-gray-400 mt-0.5">' + escaparHtml(c.observacion) + '</p>' : '')
+            + '<p class="text-[10px] text-gray-300 mt-0.5">' + escaparHtml(c.fecha) + ' · ' + escaparHtml(c.admin_email ? c.admin_email.split("@")[0] : "") + '</p>'
+            + '</div>'
+            + '<button onclick="eliminarCompra(' + c.id + ')" class="text-xs text-red-400 hover:text-red-600 px-1.5 py-1 rounded hover:bg-red-50 transition-colors shrink-0">×</button>'
+            + '</div>';
+    });
+    listaEl.innerHTML = html;
+}
+
+async function guardarPrecioTicket() {
+    var precio = parseFloat(document.getElementById("inputPrecioTicket").value);
+    if (isNaN(precio) || precio < 0) {
+        mostrarToast("Ingresa un precio valido (0 o mayor)", "error");
+        return;
+    }
+    var token = await obtenerToken();
+    if (!token) return;
+    var url = API_URL + "/configuracion/precio-ticket";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, {
+        method: "PUT", headers: authHeaders(token),
+        body: JSON.stringify({ precio_ticket: precio })
+    });
+    if (!res) return;
+    precioTicket = precio;
+    mostrarToast("Precio actualizado: $" + precio.toLocaleString("es-CO") + " COP", "success");
+}
+
+async function registrarCompra() {
+    var monto = parseFloat(document.getElementById("inputCompraMontoF").value);
+    if (!monto || monto <= 0) {
+        mostrarToast("Ingresa un monto valido", "error");
+        return;
+    }
+    var desc = document.getElementById("inputCompraDescF").value.trim();
+    var obs = document.getElementById("inputCompraObsF").value.trim();
+
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var body = { monto: monto };
+    if (desc) body.descripcion = desc;
+    if (obs) body.observacion = obs;
+    if (sedeActual) body.sede_id = sedeActual;
+
+    var url = API_URL + "/mercado/";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, {
+        method: "POST", headers: authHeaders(token),
+        body: JSON.stringify(body)
+    });
+    if (!res) return;
+    document.getElementById("inputCompraMontoF").value = "";
+    document.getElementById("inputCompraDescF").value = "";
+    document.getElementById("inputCompraObsF").value = "";
+    mostrarToast("Compra registrada", "success");
+    cargarFinanzas();
+}
+
+async function eliminarCompra(compraId) {
+    if (!confirm("Eliminar esta compra de mercado?")) return;
+    var token = await obtenerToken();
+    if (!token) return;
+    var url = API_URL + "/mercado/" + compraId;
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, {
+        method: "DELETE", headers: { "Authorization": "Bearer " + token }
+    });
+    if (!res) return;
+    mostrarToast("Compra eliminada", "info");
+    cargarFinanzas();
 }

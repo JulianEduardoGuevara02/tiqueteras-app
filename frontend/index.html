@@ -29,6 +29,11 @@
         @keyframes pulse-border { 0%,100% { opacity:.4 } 50% { opacity:1 } }
         .celda-procesando { animation: pulse-border .8s ease-in-out infinite; outline: 2px solid #6366f1; outline-offset: -2px; opacity: .6; pointer-events: none; }
         .th-procesando { animation: pulse-border .8s ease-in-out infinite; outline: 2px solid #6366f1; outline-offset: -2px; opacity: .6; pointer-events: none; }
+        /* Switch tipo persona */
+        .tipo-switch { width: 44px; height: 24px; background: #e5e7eb; border-radius: 12px; position: relative; cursor: pointer; transition: background .2s ease; flex-shrink: 0; user-select: none; }
+        .tipo-switch.activo { background: #8b5cf6; }
+        .tipo-switch-thumb { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; box-shadow: 0 1px 3px rgba(0,0,0,.18); transition: transform .2s ease; }
+        .tipo-switch.activo .tipo-switch-thumb { transform: translateX(20px); }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -64,6 +69,11 @@
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                </button>
+                <button onclick="abrirFinanzas()" class="text-gray-400 hover:text-green-600 transition-colors p-2 rounded-lg hover:bg-green-50" title="Finanzas quincenales">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </button>
                 <button onclick="abrirRecordatorios()" class="text-gray-400 hover:text-brand-600 transition-colors p-2 rounded-lg hover:bg-brand-50" title="Recordatorios por correo">
@@ -116,6 +126,10 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                     <span class="hidden sm:inline" id="txtVerInactivos">Ver inactivos</span>
                 </button>
+                <button onclick="toggleSort()" id="btnSort" class="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 active:scale-[0.97] transition-all" title="Ordenar lista">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+                    <span class="hidden sm:inline" id="txtSort">A-Z</span>
+                </button>
                 <button onclick="descargarExcel()" class="inline-flex items-center gap-1.5 bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-50 active:scale-[0.97] transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                     <span class="hidden sm:inline">Exportar</span>
@@ -124,6 +138,7 @@
 
             <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-green-500 rounded-sm inline-block"></span>Pagado</span>
+                <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-teal-500 rounded-sm inline-block"></span>Empresa</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-orange-400 rounded-sm inline-block"></span>Fiado</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-gray-200 rounded-sm inline-block border"></span>Sin cobertura</span>
                 <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 bg-red-500 rounded-sm inline-block"></span>No come</span>
@@ -188,42 +203,78 @@
                     <button onclick="eliminarUsuario()" class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
                 </div>
             </div>
-            <div class="p-6 space-y-5">
-                <div class="flex gap-4">
-                    <div class="flex-1 bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
-                        <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium">Balance</p>
+            <div class="p-6 space-y-4">
+                <!-- Balance + Cobertura -->
+                <div class="flex gap-3">
+                    <div class="flex-1 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Balance</p>
                         <p id="modalSaldo" class="text-2xl font-bold mt-1">0</p>
+                        <p id="modalSaldoCOP" class="text-[11px] text-gray-400 mt-0.5 hidden"></p>
                     </div>
-                    <div class="flex-1 bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
-                        <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium">Cobertura hasta</p>
+                    <div class="flex-1 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Cobertura hasta</p>
                         <p id="modalCobertura" class="text-sm font-bold text-gray-800 mt-2 capitalize"></p>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100">
-                    <div>
-                        <p class="text-[11px] text-gray-400 uppercase tracking-wide font-medium">Tipo de persona</p>
-                        <p id="lblTipoActual" class="text-sm font-semibold text-gray-700 mt-0.5">Recurrente</p>
+                <!-- Tipo + Email compactos en una tarjeta -->
+                <div class="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+                    <!-- Switch tipo -->
+                    <div id="tipoSwitchRow" class="flex items-center justify-between px-4 py-2.5">
+                        <span class="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Tipo</span>
+                        <div class="flex items-center gap-2.5">
+                            <span id="lblTipoIzq" class="text-sm text-gray-400">Recurrente</span>
+                            <div class="tipo-switch" id="switchTipo" onclick="cambiarTipoUsuario()" title="Cambiar entre Recurrente y Esporadico">
+                                <div class="tipo-switch-thumb"></div>
+                            </div>
+                            <span id="lblTipoDer" class="text-sm font-medium text-gray-700">Esporadico</span>
+                        </div>
                     </div>
-                    <button onclick="cambiarTipoUsuario()" id="btnCambiarTipo" class="text-xs text-gray-400 hover:text-purple-500 transition-colors px-2 py-1 rounded hover:bg-purple-50">Cambiar a esporadico</button>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Correo electronico</label>
-                    <div class="flex gap-2">
+                    <!-- Badge empresa (reemplaza switch) -->
+                    <div id="tipoEmpresaRow" class="hidden flex items-center justify-between px-4 py-2.5">
+                        <span class="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Tipo</span>
+                        <span class="text-sm font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg">Cuenta Empresa</span>
+                    </div>
+                    <!-- Email compacto -->
+                    <div class="flex items-center gap-2 px-4 py-2.5">
                         <input type="email" id="inputEmail"
-                            class="flex-1 border border-gray-200 bg-gray-50 p-2.5 rounded-xl text-sm outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors"
+                            class="flex-1 bg-transparent text-sm text-gray-600 outline-none placeholder:text-gray-300 min-w-0"
                             placeholder="correo@empresa.com (opcional)">
-                        <button onclick="guardarEmail()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:scale-[0.97] transition-all">Guardar</button>
+                        <button onclick="guardarEmail()" class="text-xs text-gray-400 hover:text-brand-600 hover:bg-brand-50 px-2 py-1 rounded transition-colors shrink-0">Guardar</button>
                     </div>
                 </div>
 
+                <!-- Ajustar tickets (accion primaria) -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-600 mb-1.5">Ajustar Tickets</label>
+                    <div class="flex items-center justify-between mb-2.5">
+                        <label class="text-sm font-semibold text-gray-700">Ajustar Tickets</label>
+                        <span id="precioTicketBadge" class="hidden text-[11px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md font-medium border border-brand-100"></span>
+                    </div>
+                    <!-- Pago con monto (solo si precio > 0) -->
+                    <div id="montoPagadoSection" class="hidden mb-3">
+                        <div class="flex items-center gap-2">
+                            <div class="relative flex-1">
+                                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                                <input type="number" id="inputMontoPagado" min="0" step="1000"
+                                    class="w-full border border-brand-200 bg-brand-50/30 pl-7 pr-3 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm"
+                                    placeholder="Monto en COP" oninput="calcularTicketsDesdeMonto()">
+                            </div>
+                            <div class="text-center shrink-0 bg-gray-50 border border-gray-100 py-2 px-3 rounded-xl min-w-[72px]">
+                                <div class="text-[10px] text-gray-400 uppercase">tiquetes</div>
+                                <div class="text-lg font-bold text-brand-600 leading-tight" id="ticketsEquivalentes">0</div>
+                            </div>
+                        </div>
+                        <p class="text-center text-[11px] text-gray-300 my-1.5">— o cantidad directa —</p>
+                    </div>
+                    <!-- Tickets directo -->
                     <input type="number" id="inputTickets" min="1"
-                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors"
-                        placeholder="Cantidad de tickets">
-                    <p class="text-[11px] text-gray-400 mt-1.5">Abonar = la persona paga tickets. Quitar = corregir error.</p>
+                        class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm"
+                        placeholder="Cantidad de tiquetes">
+                    <!-- Observacion -->
+                    <input type="text" id="inputObservacion"
+                        class="w-full mt-2 border border-gray-200 bg-gray-50 p-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white transition-colors text-sm"
+                        placeholder="Observacion (opcional)">
+                    <p class="text-[11px] text-gray-400 mt-1.5">Abonar = la persona paga tiquetes. Quitar = corregir error.</p>
                 </div>
 
                 <div class="flex gap-2">
@@ -253,6 +304,7 @@
                     <select id="selectNuevoTipo" class="w-full border border-gray-200 bg-gray-50 p-3 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm">
                         <option value="recurrente">Recurrente (come todos los dias habiles)</option>
                         <option value="esporadico">Esporadico (solo cuando se registra asistencia)</option>
+                        <option value="empresa">Cuenta Empresa (visitantes o subsidiados por la empresa)</option>
                     </select>
                 </div>
                 <div class="flex gap-2">
@@ -367,6 +419,79 @@
                 <p class="text-gray-500 text-sm mb-1">Esta funcion estara disponible proximamente.</p>
                 <p class="text-gray-400 text-xs mb-5">Mientras tanto, agrega el correo de cada persona desde su perfil para tener los datos listos.</p>
                 <button onclick="cerrarRecordatorios()" class="w-full py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm text-sm">Entendido</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Finanzas -->
+    <div id="modalFinanzas" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarFinanzas()">
+        <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center shrink-0">
+                <div>
+                    <h2 class="text-lg font-bold text-gray-800">Finanzas</h2>
+                    <p id="finanzasPeriodoLabel" class="text-xs text-gray-400 mt-0.5">Quincena actual</p>
+                </div>
+                <button onclick="cerrarFinanzas()" class="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded hover:bg-gray-200">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- Resumen -->
+            <div class="grid grid-cols-3 gap-3 p-4 shrink-0">
+                <div class="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
+                    <p class="text-[10px] text-green-600 uppercase font-medium tracking-wide">Pagos recibidos</p>
+                    <p id="finanzasIngresos" class="text-xl font-bold text-green-700 mt-1">$0</p>
+                </div>
+                <div class="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
+                    <p class="text-[10px] text-red-600 uppercase font-medium tracking-wide">Compras mercado</p>
+                    <p id="finanzasEgresos" class="text-xl font-bold text-red-700 mt-1">$0</p>
+                </div>
+                <div class="bg-brand-50 border border-brand-100 rounded-xl p-3 text-center">
+                    <p class="text-[10px] text-brand-600 uppercase font-medium tracking-wide">Saldo caja</p>
+                    <p id="finanzasSaldo" class="text-xl font-bold text-brand-700 mt-1">$0</p>
+                </div>
+            </div>
+            <!-- Precio tiquete -->
+            <div class="px-4 pb-3 shrink-0">
+                <div class="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                    <div class="flex-1">
+                        <label class="text-[11px] font-medium text-gray-500 uppercase tracking-wide">Precio tiquete</label>
+                        <div class="flex items-center gap-1.5 mt-1">
+                            <span class="text-gray-400 text-sm">$</span>
+                            <input type="number" id="inputPrecioTicket" min="0" step="500"
+                                class="flex-1 bg-transparent text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300"
+                                placeholder="0 COP">
+                        </div>
+                    </div>
+                    <button onclick="guardarPrecioTicket()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:scale-[0.97] transition-all">Guardar</button>
+                </div>
+            </div>
+            <!-- Registrar compra -->
+            <div class="px-4 pb-3 border-t border-gray-100 pt-3 shrink-0">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Registrar compra de mercado</p>
+                <div class="flex gap-2">
+                    <div class="relative w-32 shrink-0">
+                        <span class="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                        <input type="number" id="inputCompraMontoF" min="0" step="1000"
+                            class="w-full border border-gray-200 bg-gray-50 pl-6 pr-2 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                            placeholder="Monto">
+                    </div>
+                    <input type="text" id="inputCompraDescF"
+                        class="flex-1 border border-gray-200 bg-gray-50 px-3 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                        placeholder="Descripcion (ej: Verduras semana 3)">
+                </div>
+                <div class="flex gap-2 mt-2">
+                    <input type="text" id="inputCompraObsF"
+                        class="flex-1 border border-gray-200 bg-gray-50 px-3 py-2.5 rounded-xl outline-none focus:ring-2 focus:ring-brand-500 text-sm"
+                        placeholder="Observacion (opcional)">
+                    <button onclick="registrarCompra()" class="px-4 py-2 bg-brand-600 text-white rounded-xl text-sm font-medium hover:bg-brand-700 active:scale-[0.97] transition-all">Registrar</button>
+                </div>
+            </div>
+            <!-- Historial compras -->
+            <div class="flex-1 overflow-y-auto border-t border-gray-100 px-4 py-3">
+                <p class="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">Compras del periodo</p>
+                <div id="finanzasComprasList">
+                    <p class="text-center text-gray-400 text-sm py-6">Abre el panel para ver el historial</p>
+                </div>
             </div>
         </div>
     </div>
