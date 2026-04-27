@@ -195,56 +195,69 @@
 
     <!-- Modal: Perfil de usuario -->
     <div id="modalPerfil" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarModal()">
-        <div class="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                <h2 id="modalNombre" class="text-xl font-bold text-gray-800">Nombre</h2>
-                <div class="flex gap-2">
-                    <button onclick="toggleActivoUsuario()" id="btnToggleActivo" class="text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded hover:bg-orange-50">Desactivar</button>
-                    <button onclick="eliminarUsuario()" class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
-                </div>
-            </div>
-            <div class="p-6 space-y-4">
-                <!-- Balance + Cobertura -->
-                <div class="flex gap-3">
-                    <div class="flex-1 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
-                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Balance</p>
-                        <p id="modalSaldo" class="text-2xl font-bold mt-1">0</p>
-                        <p id="modalSaldoCOP" class="text-[11px] text-gray-400 mt-0.5 hidden"></p>
-                    </div>
-                    <div class="flex-1 bg-gray-50 p-3 rounded-xl border border-gray-100 text-center">
-                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Cobertura hasta</p>
-                        <p id="modalCobertura" class="text-sm font-bold text-gray-800 mt-2 capitalize"></p>
-                    </div>
-                </div>
+        <div class="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden">
 
-                <!-- Tipo + Email compactos en una tarjeta -->
-                <div class="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
-                    <!-- Switch tipo -->
-                    <div id="tipoSwitchRow" class="flex items-center justify-between px-4 py-2.5">
-                        <span class="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Tipo</span>
-                        <div class="flex items-center gap-2.5">
-                            <span id="lblTipoIzq" class="text-sm text-gray-400">Recurrente</span>
-                            <div class="tipo-switch" id="switchTipo" onclick="cambiarTipoUsuario()" title="Cambiar entre Recurrente y Esporadico">
-                                <div class="tipo-switch-thumb"></div>
-                            </div>
-                            <span id="lblTipoDer" class="text-sm font-medium text-gray-700">Esporadico</span>
+            <!-- HEADER: nombre / tipo / email / acciones -->
+            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100">
+                <!-- Fila 1: nombre + botones destructivos -->
+                <div class="flex items-center justify-between gap-3">
+                    <h2 id="modalNombre" class="text-xl font-bold text-gray-800 truncate">Nombre</h2>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="toggleActivoUsuario()" id="btnToggleActivo" class="text-xs text-gray-400 hover:text-orange-500 transition-colors px-2 py-1 rounded hover:bg-orange-50">Desactivar</button>
+                        <span class="text-gray-200">|</span>
+                        <button onclick="eliminarUsuario()" class="text-xs text-gray-400 hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50">Eliminar</button>
+                    </div>
+                </div>
+                <!-- Fila 2: tipo switch + email -->
+                <div class="flex items-center gap-3 mt-3">
+                    <!-- Switch Recurrente / Esporadico -->
+                    <div id="tipoSwitchRow" class="flex items-center gap-2 shrink-0">
+                        <span id="lblTipoIzq" class="text-sm font-medium text-gray-700">Recurrente</span>
+                        <div class="tipo-switch" id="switchTipo" onclick="cambiarTipoUsuario()" title="Cambiar entre Recurrente y Esporadico">
+                            <div class="tipo-switch-thumb"></div>
                         </div>
+                        <span id="lblTipoDer" class="text-sm text-gray-400">Esporadico</span>
                     </div>
                     <!-- Badge empresa (reemplaza switch) -->
-                    <div id="tipoEmpresaRow" class="hidden flex items-center justify-between px-4 py-2.5">
-                        <span class="text-[11px] text-gray-400 font-medium uppercase tracking-wide">Tipo</span>
+                    <div id="tipoEmpresaRow" class="hidden shrink-0">
                         <span class="text-sm font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg">Cuenta Empresa</span>
                     </div>
+                    <!-- Divisor -->
+                    <div class="h-4 w-px bg-gray-200 shrink-0"></div>
                     <!-- Email compacto -->
-                    <div class="flex items-center gap-2 px-4 py-2.5">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
                         <input type="email" id="inputEmail"
-                            class="flex-1 bg-transparent text-sm text-gray-600 outline-none placeholder:text-gray-300 min-w-0"
+                            class="flex-1 min-w-0 bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-600 outline-none focus:ring-1 focus:ring-brand-500 transition-colors"
                             placeholder="correo@empresa.com (opcional)">
-                        <button onclick="guardarEmail()" class="text-xs text-gray-400 hover:text-brand-600 hover:bg-brand-50 px-2 py-1 rounded transition-colors shrink-0">Guardar</button>
+                        <button onclick="guardarEmail()" class="text-xs text-gray-400 hover:text-brand-600 border border-gray-200 hover:border-brand-200 px-2.5 py-1.5 rounded-lg transition-colors shrink-0 bg-white">Guardar</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BODY -->
+            <div class="p-5 space-y-4">
+                <!-- 3 tarjetas: Tiquetes | Valor COP | Cobertura -->
+                <div class="grid grid-cols-3 gap-3">
+                    <!-- Tiquetes -->
+                    <div id="cardTiquetes" class="p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Tiquetes</p>
+                        <p id="modalSaldo" class="text-4xl font-bold mt-1 text-gray-400">0</p>
+                        <p id="modalSaldoSub" class="text-[10px] mt-1.5 font-medium text-gray-400">sin saldo</p>
+                    </div>
+                    <!-- Valor en COP -->
+                    <div id="cardCOP" class="p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Valor en COP</p>
+                        <p id="modalSaldoCOP" class="text-2xl font-bold mt-1 text-gray-300">$—</p>
+                        <p id="modalSaldoCOPSub" class="text-[10px] mt-1.5 text-gray-400">sin precio config.</p>
+                    </div>
+                    <!-- Cobertura -->
+                    <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                        <p class="text-[10px] text-gray-400 uppercase tracking-wide font-medium">Cobertura</p>
+                        <p id="modalCobertura" class="text-sm font-bold text-gray-800 mt-2 capitalize leading-snug"></p>
                     </div>
                 </div>
 
-                <!-- Ajustar tickets (accion primaria) -->
+                <!-- Ajustar tickets -->
                 <div>
                     <div class="flex items-center justify-between mb-2.5">
                         <label class="text-sm font-semibold text-gray-700">Ajustar Tickets</label>
@@ -281,7 +294,7 @@
                     <button onclick="ajustarTickets('agregar')" class="flex-1 py-2.5 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-[0.97] transition-all shadow-sm text-sm">Abonar</button>
                     <button onclick="ajustarTickets('quitar')" class="flex-1 py-2.5 bg-red-50 text-red-600 rounded-xl font-medium hover:bg-red-100 active:scale-[0.97] transition-all text-sm">Quitar</button>
                 </div>
-                <button onclick="cerrarModal()" class="w-full py-2.5 text-gray-500 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button>
+                <button onclick="cerrarModal()" class="w-full py-2 text-gray-400 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button>
             </div>
         </div>
     </div>

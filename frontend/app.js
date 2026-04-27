@@ -550,24 +550,63 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
         }
     }
 
-    // Balance
+    // Card Tiquetes
     var saldoEl = document.getElementById("modalSaldo");
-    var saldoCOPEl = document.getElementById("modalSaldoCOP");
+    var saldoSubEl = document.getElementById("modalSaldoSub");
+    var cardTiquetes = document.getElementById("cardTiquetes");
     if (saldo < 0) {
-        saldoEl.innerText = Math.abs(saldo) + " en deuda";
-        saldoEl.className = "text-2xl font-bold mt-1 text-red-600";
+        saldoEl.className = "text-4xl font-bold mt-1 text-red-600";
+        saldoEl.innerText = Math.abs(saldo);
+        saldoSubEl.className = "text-[10px] mt-1.5 font-medium text-red-400";
+        saldoSubEl.innerText = "en deuda";
+        cardTiquetes.className = "p-4 rounded-xl border text-center transition-colors bg-red-50 border-red-200";
+    } else if (saldo > 0) {
+        saldoEl.className = "text-4xl font-bold mt-1 text-green-600";
+        saldoEl.innerText = saldo;
+        saldoSubEl.className = "text-[10px] mt-1.5 font-medium text-green-500";
+        saldoSubEl.innerText = "a favor";
+        cardTiquetes.className = "p-4 rounded-xl border text-center transition-colors bg-green-50 border-green-200";
     } else {
-        saldoEl.innerText = saldo + " a favor";
-        saldoEl.className = "text-2xl font-bold mt-1 text-brand-600";
+        saldoEl.className = "text-4xl font-bold mt-1 text-gray-400";
+        saldoEl.innerText = "0";
+        saldoSubEl.className = "text-[10px] mt-1.5 font-medium text-gray-400";
+        saldoSubEl.innerText = "sin saldo";
+        cardTiquetes.className = "p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100";
     }
 
-    // Equivalencia en COP
-    if (precioTicket > 0 && usuarioActualTipo !== "empresa") {
+    // Card COP
+    var saldoCOPEl = document.getElementById("modalSaldoCOP");
+    var saldoCOPSubEl = document.getElementById("modalSaldoCOPSub");
+    var cardCOP = document.getElementById("cardCOP");
+    if (usuarioActualTipo === "empresa") {
+        saldoCOPEl.className = "text-2xl font-bold mt-1 text-teal-600";
+        saldoCOPEl.textContent = "—";
+        saldoCOPSubEl.textContent = "cuenta empresa";
+        cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-teal-50 border-teal-200";
+    } else if (precioTicket > 0) {
         var cop = Math.abs(saldo) * precioTicket;
-        saldoCOPEl.textContent = (saldo < 0 ? "Deuda: " : "≈ ") + "$" + cop.toLocaleString("es-CO") + " COP";
-        saldoCOPEl.classList.remove("hidden");
+        var copStr = "$" + cop.toLocaleString("es-CO");
+        if (saldo < 0) {
+            saldoCOPEl.className = "text-2xl font-bold mt-1 text-red-600";
+            saldoCOPEl.textContent = copStr;
+            saldoCOPSubEl.textContent = "en deuda";
+            cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-red-50 border-red-200";
+        } else if (saldo > 0) {
+            saldoCOPEl.className = "text-2xl font-bold mt-1 text-green-600";
+            saldoCOPEl.textContent = copStr;
+            saldoCOPSubEl.textContent = "a favor";
+            cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-green-50 border-green-200";
+        } else {
+            saldoCOPEl.className = "text-2xl font-bold mt-1 text-gray-400";
+            saldoCOPEl.textContent = "$0";
+            saldoCOPSubEl.textContent = "sin saldo";
+            cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100";
+        }
     } else {
-        saldoCOPEl.classList.add("hidden");
+        saldoCOPEl.className = "text-2xl font-bold mt-1 text-gray-300";
+        saldoCOPEl.textContent = "$—";
+        saldoCOPSubEl.textContent = "sin precio config.";
+        cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100";
     }
 
     // Badge precio y seccion monto
