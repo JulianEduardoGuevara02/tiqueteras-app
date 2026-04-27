@@ -634,9 +634,12 @@ function cerrarModal() {
 
 function sincronizarDesdeMonto() {
     var monto = parseFloat(document.getElementById("inputMontoPagado").value) || 0;
-    var tickets = precioTicket > 0 ? Math.round(monto / precioTicket) : 0;
     var inputTickets = document.getElementById("inputTickets");
-    inputTickets.value = tickets > 0 ? tickets : "";
+    if (precioTicket > 0 && monto > 0 && monto % precioTicket === 0) {
+        inputTickets.value = monto / precioTicket;
+    } else {
+        inputTickets.value = "";
+    }
 }
 
 function sincronizarDesdeTickets() {
