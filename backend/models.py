@@ -18,7 +18,7 @@ if DATABASE_URL.startswith("sqlite"):
 else:
     engine = create_engine(
         DATABASE_URL,
-        connect_args={"prepare_threshold": 0},
+        connect_args={"prepare_threshold": None},
         poolclass=NullPool,
     )
 
