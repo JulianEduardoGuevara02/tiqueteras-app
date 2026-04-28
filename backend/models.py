@@ -3,6 +3,7 @@ import os
 import logging
 from sqlalchemy import create_engine, Column, Integer, String, Date, DateTime, ForeignKey, Float, text
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.pool import NullPool
 import datetime
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,7 @@ else:
     engine = create_engine(
         DATABASE_URL,
         connect_args={"prepare_threshold": 0},
-        pool_pre_ping=True,
-        pool_recycle=300,
+        poolclass=NullPool,
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
