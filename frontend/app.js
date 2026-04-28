@@ -679,6 +679,9 @@ async function ajustarTickets(accion) {
         return;
     }
 
+    var token = await obtenerToken();
+    if (!token) return;
+
     var cantidad = accion === "quitar" ? -tickets : tickets;
     var body = { cantidad: cantidad };
     if (precioTicket > 0) body.precio_snapshot = precioTicket;
