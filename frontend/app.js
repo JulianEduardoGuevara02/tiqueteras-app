@@ -685,7 +685,7 @@ async function ajustarTickets(accion) {
     var cantidad = accion === "quitar" ? -tickets : tickets;
     var body = { cantidad: cantidad };
     if (precioTicket > 0) body.precio_snapshot = precioTicket;
-    if (monto > 0) body.monto_pagado = monto;
+    if (monto > 0 && accion === "agregar") body.monto_pagado = monto;
 
     var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tickets", {
         method: "POST", headers: authHeaders(token),
