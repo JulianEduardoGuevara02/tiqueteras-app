@@ -148,16 +148,12 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         estado_base = ""
 
         if es_empresa:
-            # Cuenta empresa: come igual que recurrente pero sin descontar tickets
-            if es_global and tipo_exc != "Come_Global":
-                estado_base = "global_blocked"
-            elif tipo_exc == "Ausencia":
-                estado_base = "absence"
-            elif es_domingo and tipo_exc != "Domingo_Habilitado":
-                estado_base = "sunday_blocked"
-            else:
+            # Cuenta empresa: come solo cuando hay asistencia explícita (igual que esporádico)
+            if tipo_exc == "Asistencia":
                 come = True
                 estado_base = "empresa"
+            else:
+                estado_base = "sunday_blocked"
         elif es_esporadico:
             if tipo_exc == "Asistencia":
                 come = True
@@ -403,7 +399,7 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
     es_domingo = fecha_obj.weekday() == 6
     es_global = db.query(DiaGlobal).filter_by(fecha=fecha_obj, sede_id=usuario.sede_id).first() is not None
 
-    if es_esporadico:
+    if es_esporadico or es_empresa:
         tipo = "Asistencia"
     elif es_global:
         tipo = "Come_Global"
