@@ -1,4 +1,5 @@
 import os
+import calendar as cal_module
 from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -108,6 +109,10 @@ class CompraCreate(BaseModel):
     descripcion: Optional[str] = None
     observacion: Optional[str] = None
     sede_id: Optional[int] = None
+
+class CompraUpdate(BaseModel):
+    monto: float
+    descripcion: Optional[str] = None
 
 # === Proyeccion (sin cambios) ===
 
@@ -765,6 +770,146 @@ def eliminar_compra(
     db.delete(compra)
     db.commit()
     return {"message": "Compra eliminada"}
+
+@app.put("/mercado/{compra_id}")
+def editar_compra(
+    compra_id: int,
+    req: CompraUpdate,
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    compra = db.query(ComprasMercado).filter(ComprasMercado.id == compra_id).first()
+    if not compra:
+        raise HTTPException(status_code=404, detail="Compra no encontrada")
+    if admin.rol != "superadmin" and compra.sede_id != admin.sede_id:
+        raise HTTPException(status_code=403, detail="Sin acceso a esta compra")
+    compra.monto = req.monto
+    compra.descripcion = req.descripcion
+    registrar_log(db, admin.email, "Editar compra mercado",
+                  f"${req.monto:,.0f} — {req.descripcion or ''}", compra.sede_id)
+    db.commit()
+    return {"message": "Compra actualizada"}
+
+# === Helpers quincenas ===
+
+def _rangos_quincenas(cantidad: int, offset: int):
+    hoy = date.today()
+    year, month = hoy.year, hoy.month
+    num = 1 if hoy.day <= 15 else 2
+    for _ in range(offset):
+        if num == 2:
+            num = 1
+        else:
+            num = 2
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+    rangos = []
+    for _ in range(cantidad):
+        if num == 1:
+            inicio = date(year, month, 1)
+            fin = date(year, month, 15)
+        else:
+            inicio = date(year, month, 16)
+            fin = date(year, month, cal_module.monthrange(year, month)[1])
+        rangos.append((year, month, num, inicio, fin))
+        if num == 2:
+            num = 1
+        else:
+            num = 2
+            month -= 1
+            if month == 0:
+                month = 12
+                year -= 1
+    return rangos
+
+@app.get("/finanzas/quincenas")
+def resumen_quincenas(
+    sede_id: Optional[int] = Query(default=None),
+    offset: int = Query(default=0),
+    cantidad: int = Query(default=5),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+    rangos = _rangos_quincenas(cantidad, offset)
+    if not rangos:
+        return {"quincenas": [], "precio_ticket": 0}
+
+    fecha_global_inicio = rangos[-1][3]
+    fecha_global_fin = rangos[0][4]
+    dias_total = (fecha_global_fin - fecha_global_inicio).days + 1
+
+    q_usuarios = db.query(Usuario).options(
+        joinedload(Usuario.saldos),
+        joinedload(Usuario.excepciones)
+    ).filter(Usuario.activo == 1)
+    if sid is not None:
+        q_usuarios = q_usuarios.filter(Usuario.sede_id == sid)
+    usuarios = q_usuarios.all()
+
+    q_globales = db.query(DiaGlobal)
+    if sid is not None:
+        q_globales = q_globales.filter(DiaGlobal.sede_id == sid)
+    dias_globales_set = {d.fecha for d in q_globales.all()}
+
+    config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
+    precio = config.precio_ticket if config and config.precio_ticket else 0.0
+
+    # Mapear fecha → índice de quincena
+    fecha_a_idx = {}
+    for i, (_, _, _, inicio, fin) in enumerate(rangos):
+        d = inicio
+        while d <= fin:
+            fecha_a_idx[d] = i
+            d += timedelta(days=1)
+
+    stats = [{"pagados": 0, "fiados": 0, "empresa": 0} for _ in rangos]
+    for u in usuarios:
+        proy = calcular_proyeccion_usuario(u, fecha_global_inicio, dias_total, dias_globales_set)
+        for dia in proy["calendario"]:
+            fd = date.fromisoformat(dia["fecha"])
+            idx = fecha_a_idx.get(fd)
+            if idx is None:
+                continue
+            estado = dia["estado"]
+            if estado in ("covered", "past_covered"):
+                stats[idx]["pagados"] += 1
+            elif estado in ("fiado", "past_fiado", "sin_cobertura"):
+                stats[idx]["fiados"] += 1
+            elif estado in ("empresa", "past_empresa"):
+                stats[idx]["empresa"] += 1
+
+    meses_es = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
+    resultado = []
+    for i, (year, month, num, inicio, fin) in enumerate(rangos):
+        inicio_dt = datetime.combine(inicio, datetime.min.time())
+        fin_dt = datetime.combine(fin, datetime.max.time())
+        q_c = db.query(ComprasMercado).filter(
+            ComprasMercado.fecha >= inicio_dt,
+            ComprasMercado.fecha <= fin_dt,
+        )
+        if sid is not None:
+            q_c = q_c.filter(ComprasMercado.sede_id == sid)
+        compras = q_c.order_by(desc(ComprasMercado.fecha)).all()
+        resultado.append({
+            "year": year,
+            "mes_nombre": meses_es[month - 1],
+            "numero": num,
+            "fecha_inicio": str(inicio),
+            "fecha_fin": str(fin),
+            "pagados": {"tiquetes": stats[i]["pagados"], "cop": stats[i]["pagados"] * precio},
+            "fiados":  {"tiquetes": stats[i]["fiados"],  "cop": stats[i]["fiados"]  * precio},
+            "empresa": {"tiquetes": stats[i]["empresa"], "cop": stats[i]["empresa"] * precio},
+            "mercado": {
+                "cop": sum(c.monto for c in compras),
+                "items": [{"id": c.id, "monto": c.monto, "descripcion": c.descripcion or "", "fecha": c.fecha.strftime("%Y-%m-%d")} for c in compras],
+            },
+        })
+    return {"quincenas": resultado, "precio_ticket": precio}
 
 # === Endpoints: Resumen financiero quincenal ===
 

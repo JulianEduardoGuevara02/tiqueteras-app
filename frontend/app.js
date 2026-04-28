@@ -1128,72 +1128,243 @@ function cerrarRecordatorios() {
 
 // === Finanzas ===
 
+var quincenasOffset = 0;
+var _quincenasData = null;
+var _mercadoIdxActual = -1;
+
 function abrirFinanzas() {
+    quincenasOffset = 0;
+    _mercadoIdxActual = -1;
     document.getElementById("modalFinanzas").classList.remove("hidden");
     cargarFinanzas();
 }
 
 function cerrarFinanzas() {
     document.getElementById("modalFinanzas").classList.add("hidden");
+    document.getElementById("mercadoItemsPanel").classList.add("hidden");
 }
 
 async function cargarFinanzas() {
     var token = await obtenerToken();
     if (!token) return;
 
-    var url = API_URL + "/finanzas/resumen";
-    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var url = API_URL + "/finanzas/quincenas?offset=0&cantidad=5";
+    if (sedeActual) url += "&sede_id=" + sedeActual;
 
     var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
     if (!res || res.status === 403) return;
 
     var data = await res.json();
+    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
 
-    // Actualizar precio global y campo
     precioTicket = data.precio_ticket || 0;
     document.getElementById("inputPrecioTicket").value = precioTicket > 0 ? precioTicket : "";
 
-    // Periodo
-    var inicio = data.periodo_inicio ? data.periodo_inicio.slice(0, 10) : "";
-    var fin = data.periodo_fin ? data.periodo_fin.slice(0, 10) : "";
-    if (inicio && fin) {
-        var partsI = inicio.split("-"), partsF = fin.split("-");
+    // Tarjetas: quincena actual (índice 0)
+    if (data.quincenas && data.quincenas.length > 0) {
+        var q = data.quincenas[0];
+        document.getElementById("fzPagadosTiq").textContent = q.pagados.tiquetes;
+        document.getElementById("fzPagadosCOP").textContent = fmt(q.pagados.cop);
+        document.getElementById("fzFiadosTiq").textContent = q.fiados.tiquetes;
+        document.getElementById("fzFiadosCOP").textContent = fmt(q.fiados.cop);
+        document.getElementById("fzEmpresaTiq").textContent = q.empresa.tiquetes;
+        document.getElementById("fzEmpresaCOP").textContent = fmt(q.empresa.cop);
+        document.getElementById("fzMercadoCOP").textContent = fmt(q.mercado.cop);
+        var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
         document.getElementById("finanzasPeriodoLabel").textContent =
-            "Quincena: " + partsI[2] + "/" + partsI[1] + " — " + partsF[2] + "/" + partsF[1] + "/" + partsF[0];
+            q.mes_nombre + " · Q" + q.numero + " · " + pi[2] + "–" + pf[2] + " " + pi[1].replace(/^0/, "") + "/" + pi[0];
     }
 
-    // Tarjetas de resumen
-    var fmt = function(n) { return "$" + (n || 0).toLocaleString("es-CO"); };
-    document.getElementById("finanzasIngresos").textContent = fmt(data.total_pagos);
-    document.getElementById("finanzasEgresos").textContent = fmt(data.total_compras);
-    var saldoCaja = data.saldo_caja || 0;
-    var saldoEl = document.getElementById("finanzasSaldo");
-    saldoEl.textContent = fmt(saldoCaja);
-    saldoEl.className = saldoCaja < 0
-        ? "text-xl font-bold text-red-700 mt-1"
-        : "text-xl font-bold text-brand-700 mt-1";
+    _quincenasData = data.quincenas;
+    quincenasOffset = 0;
+    renderTablaQuincenas(data.quincenas, 0);
+    _actualizarNavQuincenas();
 
-    // Lista de compras
-    var listaEl = document.getElementById("finanzasComprasList");
-    if (!data.compras || data.compras.length === 0) {
-        listaEl.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Sin compras registradas en este periodo</p>';
+    if (_mercadoIdxActual >= 0) mostrarItemsMercado(_mercadoIdxActual);
+}
+
+async function cargarQuincenas() {
+    var token = await obtenerToken();
+    if (!token) return;
+
+    var url = API_URL + "/finanzas/quincenas?offset=" + quincenasOffset + "&cantidad=5";
+    if (sedeActual) url += "&sede_id=" + sedeActual;
+
+    var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
+    if (!res || res.status === 403) return;
+
+    var data = await res.json();
+    _quincenasData = data.quincenas;
+    renderTablaQuincenas(data.quincenas, quincenasOffset);
+    _actualizarNavQuincenas();
+    document.getElementById("mercadoItemsPanel").classList.add("hidden");
+    _mercadoIdxActual = -1;
+}
+
+function navegarQuincenas(delta) {
+    var newOffset = quincenasOffset + delta;
+    if (newOffset < 0) return;
+    quincenasOffset = newOffset;
+    _actualizarNavQuincenas();
+    cargarQuincenas();
+}
+
+function _actualizarNavQuincenas() {
+    var btnSig = document.getElementById("btnSiguienteQ");
+    if (quincenasOffset === 0) {
+        btnSig.disabled = true;
+        btnSig.className = "text-xs text-gray-300 font-medium px-2 py-1 rounded cursor-not-allowed";
+    } else {
+        btnSig.disabled = false;
+        btnSig.className = "text-xs text-brand-600 hover:text-brand-800 font-medium px-2 py-1 rounded hover:bg-brand-50 transition-colors";
+    }
+}
+
+function renderTablaQuincenas(quincenas, offset) {
+    var container = document.getElementById("tablaQuincenasContainer");
+    if (!quincenas || quincenas.length === 0) {
+        container.innerHTML = '<p class="text-center text-gray-400 text-sm py-6">Sin datos disponibles</p>';
         return;
     }
-    var html = "";
-    data.compras.forEach(function(c) {
-        html += '<div class="flex items-start justify-between py-2.5 border-b border-gray-50 last:border-0 gap-3">'
-            + '<div class="flex-1 min-w-0">'
-            + '<div class="flex items-center gap-2">'
-            + '<span class="text-sm font-semibold text-gray-800">' + fmt(c.monto) + '</span>'
-            + (c.descripcion ? '<span class="text-xs text-gray-500 truncate">' + escaparHtml(c.descripcion) + '</span>' : '')
-            + '</div>'
-            + (c.observacion ? '<p class="text-[11px] text-gray-400 mt-0.5">' + escaparHtml(c.observacion) + '</p>' : '')
-            + '<p class="text-[10px] text-gray-300 mt-0.5">' + escaparHtml(c.fecha) + ' · ' + escaparHtml(c.admin_email ? c.admin_email.split("@")[0] : "") + '</p>'
-            + '</div>'
-            + '<button onclick="eliminarCompra(' + c.id + ')" class="text-xs text-red-400 hover:text-red-600 px-1.5 py-1 rounded hover:bg-red-50 transition-colors shrink-0">×</button>'
-            + '</div>';
+
+    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
+
+    // Construir grupos para celdas combinadas
+    var yearGroups = [], monthGroups = [];
+    quincenas.forEach(function(q) {
+        if (!yearGroups.length || yearGroups[yearGroups.length-1].year !== q.year)
+            yearGroups.push({ year: q.year, count: 1 });
+        else yearGroups[yearGroups.length-1].count++;
+        var mk = q.year + "-" + q.mes_nombre;
+        if (!monthGroups.length || monthGroups[monthGroups.length-1].key !== mk)
+            monthGroups.push({ key: mk, nombre: q.mes_nombre, count: 1 });
+        else monthGroups[monthGroups.length-1].count++;
     });
-    listaEl.innerHTML = html;
+
+    var lbl = '<td class="py-1 px-2 w-16"></td>';
+
+    // Fila año
+    var r1 = '<tr>' + lbl;
+    yearGroups.forEach(function(g) {
+        r1 += '<th colspan="' + g.count + '" class="text-center pt-2 pb-0.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">' + g.year + '</th>';
+    });
+    r1 += '</tr>';
+
+    // Fila mes
+    var r2 = '<tr>' + lbl;
+    monthGroups.forEach(function(g) {
+        r2 += '<th colspan="' + g.count + '" class="text-center py-0.5 text-xs font-semibold text-gray-600 border-b border-gray-200">' + g.nombre + '</th>';
+    });
+    r2 += '</tr>';
+
+    // Fila Q número
+    var r3 = '<tr>' + lbl;
+    quincenas.forEach(function(q, i) {
+        var act = i === 0 && offset === 0;
+        r3 += '<th class="text-center py-0.5 text-[11px] font-semibold ' + (act ? 'text-brand-600' : 'text-gray-400') + ' border-b border-gray-100">Q' + q.numero + '</th>';
+    });
+    r3 += '</tr>';
+
+    // Fila rango fechas
+    var r4 = '<tr>' + lbl;
+    quincenas.forEach(function(q, i) {
+        var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
+        var act = i === 0 && offset === 0;
+        r4 += '<th class="text-center pb-1.5 text-[10px] border-b-2 ' + (act ? 'text-brand-500 border-brand-300' : 'text-gray-400 border-gray-300') + '">' + pi[2] + '–' + pf[2] + '</th>';
+    });
+    r4 += '</tr>';
+
+    // Filas de datos
+    var rowDefs = [
+        { label: "Pagados", key: "pagados", lc: "text-green-700", vc: "text-green-700", sc: "text-green-500", bg: "bg-green-50/60" },
+        { label: "Fiados",  key: "fiados",  lc: "text-red-600",   vc: "text-red-600",   sc: "text-red-400",   bg: "bg-red-50/60"   },
+        { label: "Empresa", key: "empresa", lc: "text-teal-700",  vc: "text-teal-700",  sc: "text-teal-500",  bg: "bg-teal-50/60"  },
+    ];
+    var dataRows = "";
+    rowDefs.forEach(function(rd) {
+        dataRows += '<tr class="border-b border-gray-50">';
+        dataRows += '<td class="py-2 px-2 text-[11px] font-bold ' + rd.lc + ' whitespace-nowrap">' + rd.label + '</td>';
+        quincenas.forEach(function(q, i) {
+            var act = i === 0 && offset === 0;
+            var v = q[rd.key];
+            dataRows += '<td class="py-1.5 text-center ' + (act ? rd.bg : '') + '">'
+                + '<span class="block text-sm font-bold ' + rd.vc + '">' + (v.tiquetes || 0) + '</span>'
+                + '<span class="block text-[10px] ' + rd.sc + '">' + fmt(v.cop) + '</span>'
+                + '</td>';
+        });
+        dataRows += '</tr>';
+    });
+
+    // Fila mercado
+    var mRow = '<tr><td class="py-2 px-2 text-[11px] font-bold text-orange-700 whitespace-nowrap">Mercado</td>';
+    quincenas.forEach(function(q, i) {
+        var act = i === 0 && offset === 0;
+        mRow += '<td class="py-1.5 text-center ' + (act ? 'bg-orange-50/60' : '') + '">'
+            + '<span class="block text-sm font-bold text-orange-700">' + fmt(q.mercado.cop) + '</span>'
+            + '<button onclick="mostrarItemsMercado(' + i + ')" class="text-[10px] text-orange-400 hover:text-orange-600 underline block w-full text-center">ver/editar</button>'
+            + '</td>';
+    });
+    mRow += '</tr>';
+
+    container.innerHTML = '<table class="w-full border-collapse min-w-[480px]">'
+        + '<thead>' + r1 + r2 + r3 + r4 + '</thead>'
+        + '<tbody>' + dataRows + mRow + '</tbody>'
+        + '</table>';
+}
+
+function mostrarItemsMercado(idx) {
+    _mercadoIdxActual = idx;
+    var panel = document.getElementById("mercadoItemsPanel");
+    var lista = document.getElementById("mercadoItemsList");
+    var titulo = document.getElementById("mercadoItemsTitulo");
+    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
+
+    if (!_quincenasData || !_quincenasData[idx]) { panel.classList.add("hidden"); return; }
+    var q = _quincenasData[idx];
+    titulo.textContent = "Compras · " + q.mes_nombre + " Q" + q.numero + " (" + q.fecha_inicio.slice(8) + "–" + q.fecha_fin.slice(8) + ")";
+
+    var items = q.mercado.items;
+    if (!items || items.length === 0) {
+        lista.innerHTML = '<p class="text-xs text-gray-400 py-2">Sin compras en este período</p>';
+    } else {
+        var html = "";
+        items.forEach(function(item) {
+            html += '<div id="itemRow_' + item.id + '" class="flex items-center gap-2 py-1.5 border-b border-orange-50 last:border-0">'
+                + '<span class="text-xs font-semibold text-orange-700 w-20 shrink-0">' + fmt(item.monto) + '</span>'
+                + '<span class="text-xs text-gray-600 flex-1 truncate">' + escaparHtml(item.descripcion) + '</span>'
+                + '<span class="text-[10px] text-gray-300 shrink-0">' + item.fecha + '</span>'
+                + '<button onclick="editarItemMercado(' + item.id + ',' + item.monto + ',\'' + escaparHtml(item.descripcion).replace(/'/g,"\\'") + '\')" class="text-[11px] text-gray-400 hover:text-brand-600 px-1 shrink-0" title="Editar">✎</button>'
+                + '<button onclick="eliminarCompra(' + item.id + ')" class="text-[11px] text-red-300 hover:text-red-500 px-1 shrink-0" title="Eliminar">×</button>'
+                + '</div>';
+        });
+        lista.innerHTML = html;
+    }
+    panel.classList.remove("hidden");
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function editarItemMercado(id, monto, descripcion) {
+    var row = document.getElementById("itemRow_" + id);
+    if (!row) return;
+    row.innerHTML = '<input type="number" id="editMonto_' + id + '" value="' + monto + '" class="w-20 shrink-0 border border-orange-300 rounded px-1 py-0.5 text-xs font-semibold text-orange-700 outline-none">'
+        + '<input type="text" id="editDesc_' + id + '" value="' + escaparHtml(descripcion) + '" class="flex-1 border border-gray-200 rounded px-1 py-0.5 text-xs text-gray-700 outline-none min-w-0">'
+        + '<button onclick="guardarEdicionMercado(' + id + ')" class="text-[11px] text-green-600 hover:text-green-800 px-1.5 py-0.5 rounded bg-green-50 shrink-0">✓</button>'
+        + '<button onclick="mostrarItemsMercado(' + _mercadoIdxActual + ')" class="text-[11px] text-gray-400 hover:text-gray-600 px-1 shrink-0">✕</button>';
+}
+
+async function guardarEdicionMercado(id) {
+    var monto = parseFloat(document.getElementById("editMonto_" + id).value);
+    var desc = document.getElementById("editDesc_" + id).value.trim();
+    if (!monto || monto <= 0) { mostrarToast("Monto inválido", "error"); return; }
+    var token = await obtenerToken();
+    if (!token) return;
+    var res = await fetchConReintentos(API_URL + "/mercado/" + id, {
+        method: "PUT", headers: authHeaders(token),
+        body: JSON.stringify({ monto: monto, descripcion: desc })
+    });
+    if (!res) return;
+    mostrarToast("Compra actualizada", "success");
+    cargarFinanzas();
 }
 
 async function guardarPrecioTicket() {
@@ -1217,21 +1388,13 @@ async function guardarPrecioTicket() {
 
 async function registrarCompra() {
     var monto = parseFloat(document.getElementById("inputCompraMontoF").value);
-    if (!monto || monto <= 0) {
-        mostrarToast("Ingresa un monto valido", "error");
-        return;
-    }
+    if (!monto || monto <= 0) { mostrarToast("Ingresa un monto valido", "error"); return; }
     var desc = document.getElementById("inputCompraDescF").value.trim();
-    var obs = document.getElementById("inputCompraObsF").value.trim();
-
     var token = await obtenerToken();
     if (!token) return;
-
     var body = { monto: monto };
     if (desc) body.descripcion = desc;
-    if (obs) body.observacion = obs;
     if (sedeActual) body.sede_id = sedeActual;
-
     var url = API_URL + "/mercado/";
     if (sedeActual) url += "?sede_id=" + sedeActual;
     var res = await fetchConReintentos(url, {
@@ -1241,13 +1404,12 @@ async function registrarCompra() {
     if (!res) return;
     document.getElementById("inputCompraMontoF").value = "";
     document.getElementById("inputCompraDescF").value = "";
-    document.getElementById("inputCompraObsF").value = "";
     mostrarToast("Compra registrada", "success");
     cargarFinanzas();
 }
 
 async function eliminarCompra(compraId) {
-    if (!confirm("Eliminar esta compra de mercado?")) return;
+    if (!confirm("Eliminar esta compra?")) return;
     var token = await obtenerToken();
     if (!token) return;
     var url = API_URL + "/mercado/" + compraId;
