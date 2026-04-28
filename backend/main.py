@@ -396,6 +396,7 @@ def toggle_excepcion(usuario_id: int, req: ExcepcionToggle, db: Session = Depend
     verificar_acceso_usuario(admin, usuario)
     fecha_obj = datetime.strptime(req.fecha, "%Y-%m-%d").date()
     es_esporadico = getattr(usuario, "tipo", "recurrente") == "esporadico"
+    es_empresa = getattr(usuario, "tipo", "recurrente") == "empresa"
     es_domingo = fecha_obj.weekday() == 6
     es_global = db.query(DiaGlobal).filter_by(fecha=fecha_obj, sede_id=usuario.sede_id).first() is not None
 
