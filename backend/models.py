@@ -19,6 +19,7 @@ else:
         DATABASE_URL,
         connect_args={"prepare_threshold": 0},
         pool_pre_ping=True,
+        pool_recycle=300,
     )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

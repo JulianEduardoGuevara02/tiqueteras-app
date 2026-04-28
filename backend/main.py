@@ -1,7 +1,7 @@
 import os
-from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi import FastAPI, Depends, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from datetime import date, datetime, timedelta
@@ -22,6 +22,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+def _cors_headers(request: Request) -> dict:
+    origin = request.headers.get("origin", "")
+    if "*" in allowed_origins or origin in allowed_origins:
+        return {"Access-Control-Allow-Origin": origin or "*"}
+    return {}
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    headers = _cors_headers(request)
+    if isinstance(exc, HTTPException):
+        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail}, headers=headers)
+    return JSONResponse(status_code=500, content={"detail": "Error interno del servidor"}, headers=headers)
 
 def get_db():
     db = SessionLocal()
