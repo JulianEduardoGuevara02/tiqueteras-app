@@ -20,6 +20,7 @@ var offsetDias = 0;
 
 // === Finanzas y ordenamiento ===
 var precioTicket = 0;
+var precioEmpresa = 0;
 var sortMode = "nombre";
 var ultimosDatosDashboard = null;
 
@@ -1182,7 +1183,9 @@ async function cargarFinanzas() {
 
     var data = await res.json();
     precioTicket = data.precio_ticket || 0;
+    precioEmpresa = data.precio_empresa || 0;
     document.getElementById("inputPrecioTicket").value = precioTicket > 0 ? precioTicket : "";
+    document.getElementById("inputPrecioEmpresa").value = precioEmpresa > 0 ? precioEmpresa : "";
 
     if (data.quincenas && data.quincenas.length > 0) {
         _renderTarjetasResumen(data.quincenas[0]);
@@ -1483,5 +1486,25 @@ async function guardarPrecioTicket() {
     if (!res) return;
     precioTicket = precio;
     mostrarToast("Precio actualizado: $" + precio.toLocaleString("es-CO") + " COP", "success");
+}
+
+async function guardarPrecioEmpresa() {
+    var precio = parseFloat(document.getElementById("inputPrecioEmpresa").value);
+    if (isNaN(precio) || precio < 0) {
+        mostrarToast("Ingresa un precio valido (0 o mayor)", "error");
+        return;
+    }
+    var token = await obtenerToken();
+    if (!token) return;
+    var url = API_URL + "/configuracion/precio-empresa";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, {
+        method: "PUT", headers: authHeaders(token),
+        body: JSON.stringify({ precio_empresa: precio })
+    });
+    if (!res) return;
+    precioEmpresa = precio;
+    mostrarToast("Precio empresa actualizado: $" + precio.toLocaleString("es-CO") + " COP", "success");
+    cargarQuincenas();
 }
 

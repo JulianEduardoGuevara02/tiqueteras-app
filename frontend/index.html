@@ -442,14 +442,25 @@
                     <h2 class="text-lg font-bold text-gray-800">Finanzas</h2>
                     <p id="finanzasPeriodoLabel" class="text-xs text-gray-400 mt-0.5">Quincena actual</p>
                 </div>
-                <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-1.5 shrink-0">
-                    <span class="text-[10px] text-gray-400 uppercase font-medium tracking-wide whitespace-nowrap">$ / tiquete</span>
-                    <span class="text-gray-300">|</span>
-                    <span class="text-gray-400 text-sm">$</span>
-                    <input type="number" id="inputPrecioTicket" min="0" step="500"
-                        class="w-20 bg-transparent text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300"
-                        placeholder="0">
-                    <button onclick="guardarPrecioTicket()" class="px-2.5 py-1 bg-brand-600 text-white rounded-lg text-xs font-medium hover:bg-brand-700 transition-all">Guardar</button>
+                <div class="flex items-center gap-3 shrink-0">
+                    <div class="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-1.5">
+                        <span class="text-[10px] text-gray-400 uppercase font-medium tracking-wide whitespace-nowrap">$ / tiquete</span>
+                        <span class="text-gray-300">|</span>
+                        <span class="text-gray-400 text-sm">$</span>
+                        <input type="number" id="inputPrecioTicket" min="0" step="500"
+                            class="w-20 bg-transparent text-sm font-semibold text-gray-800 outline-none placeholder:text-gray-300"
+                            placeholder="0">
+                        <button onclick="guardarPrecioTicket()" class="px-2.5 py-1 bg-brand-600 text-white rounded-lg text-xs font-medium hover:bg-brand-700 transition-all">Guardar</button>
+                    </div>
+                    <div class="flex items-center gap-2 bg-teal-50 border border-teal-200 rounded-xl px-3 py-1.5">
+                        <span class="text-[10px] text-teal-600 uppercase font-medium tracking-wide whitespace-nowrap">$ / empresa</span>
+                        <span class="text-teal-300">|</span>
+                        <span class="text-teal-500 text-sm">$</span>
+                        <input type="number" id="inputPrecioEmpresa" min="0" step="500"
+                            class="w-20 bg-transparent text-sm font-semibold text-teal-800 outline-none placeholder:text-teal-300"
+                            placeholder="0">
+                        <button onclick="guardarPrecioEmpresa()" class="px-2.5 py-1 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-all">Guardar</button>
+                    </div>
                 </div>
                 <button onclick="cerrarFinanzas()" class="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-200 shrink-0">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -578,6 +589,6 @@
     <!-- Toast container -->
     <div id="toastContainer" class="fixed top-4 right-4 z-[60] space-y-2 pointer-events-none"></div>
 
-    <script src="app.js?v=6"></script>
+    <script src="app.js?v=7"></script>
 </body>
 </html>

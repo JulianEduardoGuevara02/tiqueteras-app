@@ -104,6 +104,9 @@ class AdminSedeUpdate(BaseModel):
 class PrecioTicketUpdate(BaseModel):
     precio_ticket: float
 
+class PrecioEmpresaUpdate(BaseModel):
+    precio_empresa: float
+
 class CompraCreate(BaseModel):
     monto: float
     descripcion: Optional[str] = None
@@ -717,6 +720,25 @@ def actualizar_precio_ticket(
     db.commit()
     return {"precio_ticket": req.precio_ticket, "sede_id": sid}
 
+@app.put("/configuracion/precio-empresa")
+def actualizar_precio_empresa(
+    req: PrecioEmpresaUpdate,
+    sede_id: Optional[int] = Query(default=None),
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token)
+):
+    admin = obtener_admin_sede(db, auth_user.get("email", ""))
+    sid = obtener_sede_id(admin, sede_id)
+    if req.precio_empresa < 0:
+        raise HTTPException(status_code=400, detail="El precio no puede ser negativo")
+    config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
+    if config:
+        config.precio_empresa = req.precio_empresa
+    else:
+        db.add(ConfiguracionSede(sede_id=sid, precio_empresa=req.precio_empresa))
+    db.commit()
+    return {"precio_empresa": req.precio_empresa, "sede_id": sid}
+
 # === Endpoints: Compras de mercado ===
 
 @app.post("/mercado/")
@@ -848,6 +870,7 @@ def resumen_quincenas(
 
     config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
     precio = config.precio_ticket if config and config.precio_ticket else 0.0
+    precio_empresa = config.precio_empresa if config and config.precio_empresa else 0.0
 
     # Mapear fecha → índice de semana
     fecha_a_idx = {}
@@ -891,13 +914,13 @@ def resumen_quincenas(
             "fecha_fin": str(fin),
             "pagados": {"tiquetes": stats[i]["pagados"], "cop": stats[i]["pagados"] * precio},
             "fiados":  {"tiquetes": stats[i]["fiados"],  "cop": stats[i]["fiados"]  * precio},
-            "empresa": {"tiquetes": stats[i]["empresa"], "cop": stats[i]["empresa"] * precio},
+            "empresa": {"tiquetes": stats[i]["empresa"], "cop": stats[i]["empresa"] * precio_empresa},
             "mercado": {
                 "cop": sum(c.monto for c in compras),
                 "items": [{"id": c.id, "monto": c.monto, "descripcion": c.descripcion or "", "fecha": c.fecha.strftime("%Y-%m-%d")} for c in compras],
             },
         })
-    return {"quincenas": resultado, "precio_ticket": precio}
+    return {"quincenas": resultado, "precio_ticket": precio, "precio_empresa": precio_empresa}
 
 # === Endpoints: Resumen financiero quincenal ===
 

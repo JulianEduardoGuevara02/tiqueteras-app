@@ -93,6 +93,7 @@ class ConfiguracionSede(Base):
     id = Column(Integer, primary_key=True, index=True)
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, unique=True)
     precio_ticket = Column(Float, default=0.0)
+    precio_empresa = Column(Float, default=0.0)
 
 class ComprasMercado(Base):
     """Registro de compras de mercado/insumos. El dinero sale del fondo de pagos."""
@@ -221,6 +222,19 @@ def migrar_saldo_precio():
             except Exception:
                 conn.rollback()
 
+def migrar_precio_empresa():
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT precio_empresa FROM configuracion_sede LIMIT 1"))
+        except Exception:
+            conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE configuracion_sede ADD COLUMN precio_empresa REAL DEFAULT 0.0"))
+                conn.commit()
+                logger.info("Migracion: precio_empresa agregado a configuracion_sede")
+            except Exception:
+                conn.rollback()
+
 # Ejecutar migraciones y bootstrap al importar
 try:
     migrar_sedes()
@@ -228,6 +242,7 @@ try:
     migrar_email_usuario()
     migrar_tipo_usuario()
     migrar_saldo_precio()
+    migrar_precio_empresa()
     bootstrap_superadmin()
 except Exception as e:
     logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")
