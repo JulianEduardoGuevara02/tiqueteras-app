@@ -1363,12 +1363,12 @@ function abrirModalEditarMercado(id, monto, desc, fecha) {
     document.getElementById("editMercadoMonto").value = monto;
     document.getElementById("editMercadoDesc").value = desc;
     document.getElementById("editMercadoFechaLabel").textContent = fecha || "";
-    document.getElementById("modalEditarMercado").classList.remove("hidden");
+    document.getElementById("modalEditarMercado").style.display = "flex";
     setTimeout(function() { document.getElementById("editMercadoMonto").focus(); }, 50);
 }
 
 function cerrarModalEditarMercado() {
-    document.getElementById("modalEditarMercado").classList.add("hidden");
+    document.getElementById("modalEditarMercado").style.display = "none";
     _editMercadoId = null;
 }
 
