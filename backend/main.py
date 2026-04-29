@@ -109,6 +109,7 @@ class CompraCreate(BaseModel):
     descripcion: Optional[str] = None
     observacion: Optional[str] = None
     sede_id: Optional[int] = None
+    fecha: Optional[str] = None  # YYYY-MM-DD; si no se envía usa hoy
 
 class CompraUpdate(BaseModel):
     monto: float
@@ -729,10 +730,18 @@ def registrar_compra(
     sid = obtener_sede_id(admin, req.sede_id or sede_id)
     if req.monto <= 0:
         raise HTTPException(status_code=400, detail="El monto debe ser mayor a 0")
+    if req.fecha:
+        try:
+            fecha_dt = datetime.combine(date.fromisoformat(req.fecha), datetime.min.time())
+        except ValueError:
+            fecha_dt = datetime.utcnow()
+    else:
+        fecha_dt = datetime.utcnow()
     compra = ComprasMercado(
         monto=req.monto,
         descripcion=req.descripcion,
         observacion=req.observacion,
+        fecha=fecha_dt,
         sede_id=sid,
         admin_email=admin.email,
     )

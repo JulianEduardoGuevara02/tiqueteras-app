@@ -1414,6 +1414,10 @@ async function agregarCompraGestion() {
     var body = { monto: monto };
     if (desc) body.descripcion = desc;
     if (sedeActual) body.sede_id = sedeActual;
+    // Pasar la fecha de la semana seleccionada para que no quede en la semana actual
+    if (_gestionMercadoIdx >= 0 && _quincenasData && _quincenasData[_gestionMercadoIdx]) {
+        body.fecha = _quincenasData[_gestionMercadoIdx].fecha_fin;
+    }
     var url = API_URL + "/mercado/";
     if (sedeActual) url += "?sede_id=" + sedeActual;
     var res = await fetchConReintentos(url, {
