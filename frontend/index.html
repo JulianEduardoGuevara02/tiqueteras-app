@@ -434,7 +434,7 @@
 
     <!-- Modal: Finanzas -->
     <div id="modalFinanzas" class="fixed inset-0 bg-black/40 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarFinanzas()">
-        <div class="bg-white rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-2xl w-full max-w-5xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col relative">
 
             <!-- Header -->
             <div class="bg-gray-50 px-6 py-3 border-b border-gray-100 flex items-center gap-4 shrink-0">
@@ -520,42 +520,42 @@
                 </div>
             </div>
 
-        </div>
-    </div>
-
-    <!-- Modal: Editar compra de mercado -->
-    <div id="modalEditarMercado" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarModalEditarMercado()">
-        <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
-            <div class="bg-gradient-to-r from-orange-500 to-orange-400 px-6 py-4 flex items-center justify-between">
-                <div>
-                    <h3 class="text-white font-bold text-lg">Editar compra</h3>
-                    <p id="editMercadoFechaLabel" class="text-orange-100 text-xs mt-0.5"></p>
-                </div>
-                <button onclick="cerrarModalEditarMercado()" class="text-white/70 hover:text-white text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors">×</button>
-            </div>
-            <div class="p-6 space-y-4">
-                <div>
-                    <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Valor</label>
-                    <div class="flex items-center gap-2 border-2 border-orange-200 rounded-xl mt-1.5 px-3 focus-within:border-orange-400 transition-colors bg-orange-50/40">
-                        <span class="text-orange-400 font-bold text-xl">$</span>
-                        <input type="number" id="editMercadoMonto" class="flex-1 py-3 text-2xl font-bold text-orange-700 outline-none bg-transparent min-w-0" placeholder="0">
+            <!-- Overlay: Editar compra de mercado -->
+            <div id="modalEditarMercado" class="absolute inset-0 bg-black/40 hidden flex items-center justify-center z-10 rounded-2xl p-6" onclick="if(event.target===this)cerrarModalEditarMercado()">
+                <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-orange-500 to-orange-400 px-6 py-4 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-white font-bold text-lg">Editar compra</h3>
+                            <p id="editMercadoFechaLabel" class="text-orange-100 text-xs mt-0.5"></p>
+                        </div>
+                        <button onclick="cerrarModalEditarMercado()" class="text-white/70 hover:text-white text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors">×</button>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Valor</label>
+                            <div class="flex items-center gap-2 border-2 border-orange-200 rounded-xl mt-1.5 px-3 focus-within:border-orange-400 transition-colors bg-orange-50/40">
+                                <span class="text-orange-400 font-bold text-xl">$</span>
+                                <input type="number" id="editMercadoMonto" class="flex-1 py-3 text-2xl font-bold text-orange-700 outline-none bg-transparent min-w-0" placeholder="0">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Descripción</label>
+                            <input type="text" id="editMercadoDesc" class="w-full border-2 border-gray-200 rounded-xl mt-1.5 px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-gray-400 transition-colors" placeholder="Ej: frutas, verduras...">
+                        </div>
+                    </div>
+                    <div class="px-6 pb-6 flex gap-3">
+                        <button onclick="cerrarModalEditarMercado()" class="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-500 font-semibold text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
+                        <button onclick="confirmarEdicionMercado()" class="flex-1 py-3 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 active:bg-orange-700 transition-colors">Guardar</button>
                     </div>
                 </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Descripción</label>
-                    <input type="text" id="editMercadoDesc" class="w-full border-2 border-gray-200 rounded-xl mt-1.5 px-3 py-2.5 text-sm text-gray-700 outline-none focus:border-brand-300 transition-colors" placeholder="Ej: frutas, verduras...">
-                </div>
             </div>
-            <div class="px-6 pb-6 flex gap-3">
-                <button onclick="cerrarModalEditarMercado()" class="flex-1 py-3 rounded-xl border-2 border-gray-200 text-gray-500 font-semibold text-sm hover:bg-gray-50 transition-colors">Cancelar</button>
-                <button onclick="confirmarEdicionMercado()" class="flex-1 py-3 rounded-xl bg-orange-500 text-white font-bold text-sm hover:bg-orange-600 active:bg-orange-700 transition-colors shadow-md shadow-orange-200">Guardar</button>
-            </div>
+
         </div>
     </div>
 
     <!-- Toast container -->
     <div id="toastContainer" class="fixed top-4 right-4 z-[60] space-y-2 pointer-events-none"></div>
 
-    <script src="app.js?v=2"></script>
+    <script src="app.js?v=3"></script>
 </body>
 </html>
