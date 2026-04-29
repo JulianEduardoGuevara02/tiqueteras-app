@@ -1135,11 +1135,13 @@ var _mercadoIdxActual = -1;
 function abrirFinanzas() {
     quincenasOffset = 0;
     _mercadoIdxActual = -1;
+    document.body.style.overflow = "hidden";
     document.getElementById("modalFinanzas").classList.remove("hidden");
     cargarFinanzas();
 }
 
 function cerrarFinanzas() {
+    document.body.style.overflow = "";
     document.getElementById("modalFinanzas").classList.add("hidden");
     document.getElementById("mercadoItemsPanel").classList.add("hidden");
 }
@@ -1284,6 +1286,20 @@ function renderTablaQuincenas(quincenas, offset) {
         dataRows += '</tr>';
     });
 
+    // Fila Total (pagados + fiados + empresa)
+    var totalRow = '<tr class="border-b-2 border-indigo-100">';
+    totalRow += '<td class="py-2 px-2 text-[11px] font-bold text-indigo-700 whitespace-nowrap">Total</td>';
+    quincenas.forEach(function(q, i) {
+        var act = i === 0 && offset === 0;
+        var tiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
+        var cop = q.pagados.cop + q.fiados.cop + q.empresa.cop;
+        totalRow += '<td class="py-1.5 text-center ' + (act ? 'bg-indigo-50/60' : '') + '">'
+            + '<span class="block text-sm font-bold text-indigo-700">' + tiq + '</span>'
+            + '<span class="block text-[10px] text-indigo-500">' + fmt(cop) + '</span>'
+            + '</td>';
+    });
+    totalRow += '</tr>';
+
     // Fila mercado
     var mRow = '<tr><td class="py-2 px-2 text-[11px] font-bold text-orange-700 whitespace-nowrap">Mercado</td>';
     quincenas.forEach(function(q, i) {
@@ -1297,7 +1313,7 @@ function renderTablaQuincenas(quincenas, offset) {
 
     container.innerHTML = '<table class="w-full border-collapse min-w-[480px]">'
         + '<thead>' + r1 + r2 + '</thead>'
-        + '<tbody>' + dataRows + mRow + '</tbody>'
+        + '<tbody>' + dataRows + totalRow + mRow + '</tbody>'
         + '</table>';
 }
 
