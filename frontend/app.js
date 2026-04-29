@@ -1170,6 +1170,10 @@ async function cargarFinanzas() {
         document.getElementById("fzEmpresaTiq").textContent = q.empresa.tiquetes;
         document.getElementById("fzEmpresaCOP").textContent = fmt(q.empresa.cop);
         document.getElementById("fzMercadoCOP").textContent = fmt(q.mercado.cop);
+        var totalTiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
+        var totalCOP = q.pagados.cop + q.fiados.cop + q.empresa.cop;
+        document.getElementById("fzTotalTiq").textContent = totalTiq;
+        document.getElementById("fzTotalCOP").textContent = fmt(totalCOP);
         var mAbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
         var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
         var mi = mAbr[parseInt(pi[1])-1], mf = mAbr[parseInt(pf[1])-1];
