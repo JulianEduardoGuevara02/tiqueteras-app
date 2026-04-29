@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"import models; import main; print\\('OK'\\)\")"
+      "Bash(python -c \"import models; import main; print\\('OK'\\)\")",
+      "Bash(git *)"
     ]
   }
 }

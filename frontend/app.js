@@ -1130,11 +1130,11 @@ function cerrarRecordatorios() {
 
 var quincenasOffset = 0;
 var _quincenasData = null;
-var _mercadoIdxActual = -1;
+var _gestionMercadoIdx = -1;
 
 function abrirFinanzas() {
     quincenasOffset = 0;
-    _mercadoIdxActual = -1;
+    _gestionMercadoIdx = -1;
     document.body.style.overflow = "hidden";
     document.getElementById("modalFinanzas").classList.remove("hidden");
     cargarFinanzas();
@@ -1143,7 +1143,31 @@ function abrirFinanzas() {
 function cerrarFinanzas() {
     document.body.style.overflow = "";
     document.getElementById("modalFinanzas").classList.add("hidden");
-    document.getElementById("mercadoItemsPanel").classList.add("hidden");
+    document.getElementById("modalGestionMercado").style.display = "none";
+    document.getElementById("modalEditarMercado").style.display = "none";
+    _gestionMercadoIdx = -1;
+}
+
+function _renderTarjetasResumen(q) {
+    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
+    document.getElementById("fzPagadosTiq").textContent = q.pagados.tiquetes;
+    document.getElementById("fzPagadosCOP").textContent = fmt(q.pagados.cop);
+    document.getElementById("fzFiadosTiq").textContent = q.fiados.tiquetes;
+    document.getElementById("fzFiadosCOP").textContent = fmt(q.fiados.cop);
+    document.getElementById("fzEmpresaTiq").textContent = q.empresa.tiquetes;
+    document.getElementById("fzEmpresaCOP").textContent = fmt(q.empresa.cop);
+    document.getElementById("fzMercadoCOP").textContent = fmt(q.mercado.cop);
+    var totalTiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
+    var totalCOP = q.pagados.cop + q.fiados.cop + q.empresa.cop;
+    document.getElementById("fzTotalTiq").textContent = totalTiq;
+    document.getElementById("fzTotalCOP").textContent = fmt(totalCOP);
+    var mAbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
+    var mi = mAbr[parseInt(pi[1])-1], mf = mAbr[parseInt(pf[1])-1];
+    var rango = mi === mf
+        ? parseInt(pi[2]) + "–" + parseInt(pf[2]) + " " + mi
+        : parseInt(pi[2]) + " " + mi + "–" + parseInt(pf[2]) + " " + mf;
+    document.getElementById("finanzasPeriodoLabel").textContent = "Sem. " + q.semana_iso + " · " + rango;
 }
 
 async function cargarFinanzas() {
@@ -1157,32 +1181,11 @@ async function cargarFinanzas() {
     if (!res || res.status === 403) return;
 
     var data = await res.json();
-    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
-
     precioTicket = data.precio_ticket || 0;
     document.getElementById("inputPrecioTicket").value = precioTicket > 0 ? precioTicket : "";
 
-    // Tarjetas: quincena actual (índice 0)
     if (data.quincenas && data.quincenas.length > 0) {
-        var q = data.quincenas[0];
-        document.getElementById("fzPagadosTiq").textContent = q.pagados.tiquetes;
-        document.getElementById("fzPagadosCOP").textContent = fmt(q.pagados.cop);
-        document.getElementById("fzFiadosTiq").textContent = q.fiados.tiquetes;
-        document.getElementById("fzFiadosCOP").textContent = fmt(q.fiados.cop);
-        document.getElementById("fzEmpresaTiq").textContent = q.empresa.tiquetes;
-        document.getElementById("fzEmpresaCOP").textContent = fmt(q.empresa.cop);
-        document.getElementById("fzMercadoCOP").textContent = fmt(q.mercado.cop);
-        var totalTiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
-        var totalCOP = q.pagados.cop + q.fiados.cop + q.empresa.cop;
-        document.getElementById("fzTotalTiq").textContent = totalTiq;
-        document.getElementById("fzTotalCOP").textContent = fmt(totalCOP);
-        var mAbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-        var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
-        var mi = mAbr[parseInt(pi[1])-1], mf = mAbr[parseInt(pf[1])-1];
-        var rango = mi === mf
-            ? parseInt(pi[2]) + "–" + parseInt(pf[2]) + " " + mi
-            : parseInt(pi[2]) + " " + mi + "–" + parseInt(pf[2]) + " " + mf;
-        document.getElementById("finanzasPeriodoLabel").textContent = "Sem. " + q.semana_iso + " · " + rango;
+        _renderTarjetasResumen(data.quincenas[0]);
     }
 
     _quincenasData = data.quincenas;
@@ -1190,7 +1193,7 @@ async function cargarFinanzas() {
     renderTablaQuincenas(data.quincenas, 0);
     _actualizarNavQuincenas();
 
-    if (_mercadoIdxActual >= 0) mostrarItemsMercado(_mercadoIdxActual);
+    if (_gestionMercadoIdx >= 0) renderGestionMercadoLista();
 }
 
 async function cargarQuincenas() {
@@ -1205,10 +1208,11 @@ async function cargarQuincenas() {
 
     var data = await res.json();
     _quincenasData = data.quincenas;
+    if (quincenasOffset === 0 && data.quincenas && data.quincenas.length > 0) {
+        _renderTarjetasResumen(data.quincenas[0]);
+    }
     renderTablaQuincenas(data.quincenas, quincenasOffset);
     _actualizarNavQuincenas();
-    document.getElementById("mercadoItemsPanel").classList.add("hidden");
-    _mercadoIdxActual = -1;
 }
 
 function navegarQuincenas(delta) {
@@ -1216,6 +1220,7 @@ function navegarQuincenas(delta) {
     if (newOffset < 0) return;
     quincenasOffset = newOffset;
     _actualizarNavQuincenas();
+    cerrarGestionMercado();
     cargarQuincenas();
 }
 
@@ -1308,7 +1313,7 @@ function renderTablaQuincenas(quincenas, offset) {
     quincenas.forEach(function(q, i) {
         mRow += '<td class="py-1.5 text-center">'
             + '<span class="block text-sm font-bold text-orange-700">' + fmt(q.mercado.cop) + '</span>'
-            + '<button onclick="mostrarItemsMercado(' + i + ')" class="text-[10px] text-orange-400 hover:text-orange-600 underline block w-full text-center">ver/editar</button>'
+            + '<button onclick="abrirGestionMercado(' + i + ')" class="text-[10px] text-orange-400 hover:text-orange-600 underline block w-full text-center">ver/editar</button>'
             + '</td>';
     });
     mRow += '</tr>';
@@ -1319,14 +1324,9 @@ function renderTablaQuincenas(quincenas, offset) {
         + '</table>';
 }
 
-function mostrarItemsMercado(idx) {
-    _mercadoIdxActual = idx;
-    var panel = document.getElementById("mercadoItemsPanel");
-    var lista = document.getElementById("mercadoItemsList");
-    var titulo = document.getElementById("mercadoItemsTitulo");
-    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
-
-    if (!_quincenasData || !_quincenasData[idx]) { panel.classList.add("hidden"); return; }
+function abrirGestionMercado(idx) {
+    if (!_quincenasData || !_quincenasData[idx]) return;
+    _gestionMercadoIdx = idx;
     var q = _quincenasData[idx];
     var mAbrP = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
     var piP = q.fecha_inicio.split("-"), pfP = q.fecha_fin.split("-");
@@ -1334,26 +1334,98 @@ function mostrarItemsMercado(idx) {
     var rlP = miP === mfP
         ? parseInt(piP[2]) + "–" + parseInt(pfP[2]) + " " + miP
         : parseInt(piP[2]) + " " + miP + "–" + parseInt(pfP[2]) + " " + mfP;
-    titulo.textContent = "Compras · Sem. " + q.semana_iso + " (" + rlP + ")";
+    document.getElementById("gestionMercadoPeriodo").textContent = "Sem. " + q.semana_iso + " · " + rlP;
+    document.getElementById("gestionCompraMonto").value = "";
+    document.getElementById("gestionCompraDesc").value = "";
+    renderGestionMercadoLista();
+    document.getElementById("modalGestionMercado").style.display = "flex";
+    setTimeout(function() { document.getElementById("gestionCompraMonto").focus(); }, 50);
+}
 
+function cerrarGestionMercado() {
+    document.getElementById("modalGestionMercado").style.display = "none";
+    _gestionMercadoIdx = -1;
+}
+
+function renderGestionMercadoLista() {
+    var idx = _gestionMercadoIdx;
+    var lista = document.getElementById("gestionMercadoLista");
+    var totalEl = document.getElementById("gestionMercadoTotal");
+    var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
+    if (idx < 0 || !_quincenasData || !_quincenasData[idx]) {
+        lista.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">Sin datos</p>';
+        totalEl.textContent = "$—";
+        return;
+    }
+    var q = _quincenasData[idx];
+    totalEl.textContent = fmt(q.mercado.cop);
     var items = q.mercado.items;
     if (!items || items.length === 0) {
-        lista.innerHTML = '<p class="text-xs text-gray-400 py-2">Sin compras en este período</p>';
-    } else {
-        var html = "";
-        items.forEach(function(item) {
-            html += '<div id="itemRow_' + item.id + '" class="flex items-center gap-2 py-1.5 border-b border-orange-50 last:border-0">'
-                + '<span class="text-xs font-semibold text-orange-700 w-20 shrink-0">' + fmt(item.monto) + '</span>'
-                + '<span class="text-xs text-gray-600 flex-1 truncate">' + escaparHtml(item.descripcion) + '</span>'
-                + '<span class="text-[10px] text-gray-300 shrink-0">' + item.fecha + '</span>'
-                + '<button onclick="abrirModalEditarMercado(' + item.id + ',' + item.monto + ',\'' + escaparHtml(item.descripcion).replace(/'/g,"\\'") + '\',\'' + item.fecha + '\')" class="text-[11px] text-gray-400 hover:text-brand-600 px-1 shrink-0" title="Editar">✎</button>'
-                + '<button onclick="eliminarCompra(' + item.id + ')" class="text-[11px] text-red-300 hover:text-red-500 px-1 shrink-0" title="Eliminar">×</button>'
-                + '</div>';
-        });
-        lista.innerHTML = html;
+        lista.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">Sin compras en este período</p>';
+        return;
     }
-    panel.classList.remove("hidden");
-    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    var html = "";
+    items.forEach(function(item) {
+        var descTxt = item.descripcion ? escaparHtml(item.descripcion) : '<span class="italic text-gray-300">Sin descripción</span>';
+        html += '<div class="flex items-center gap-2 py-3 px-2 border-b border-orange-50 last:border-0 hover:bg-orange-50/40 rounded-lg transition-colors">'
+            + '<div class="flex-1 min-w-0">'
+            + '<p class="text-base font-bold text-orange-700">' + fmt(item.monto) + '</p>'
+            + '<p class="text-sm text-gray-600 truncate mt-0.5">' + descTxt + '</p>'
+            + '<p class="text-[11px] text-gray-300 mt-0.5">' + item.fecha + '</p>'
+            + '</div>'
+            + '<button data-id="' + item.id + '" onclick="abrirEditDesdeGestion(this)" class="w-10 h-10 flex items-center justify-center rounded-full text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors text-base shrink-0" title="Editar">✎</button>'
+            + '<button data-id="' + item.id + '" onclick="eliminarCompraGestion(this)" class="w-10 h-10 flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors text-xl shrink-0" title="Eliminar">×</button>'
+            + '</div>';
+    });
+    lista.innerHTML = html;
+}
+
+function abrirEditDesdeGestion(btn) {
+    var id = parseInt(btn.dataset.id);
+    if (_gestionMercadoIdx < 0 || !_quincenasData || !_quincenasData[_gestionMercadoIdx]) return;
+    var items = _quincenasData[_gestionMercadoIdx].mercado.items || [];
+    var item = items.find(function(x) { return x.id === id; });
+    if (!item) return;
+    abrirModalEditarMercado(item.id, item.monto, item.descripcion || "", item.fecha || "");
+}
+
+async function eliminarCompraGestion(btn) {
+    var id = parseInt(btn.dataset.id);
+    if (!confirm("¿Eliminar esta compra?")) return;
+    var token = await obtenerToken();
+    if (!token) return;
+    var url = API_URL + "/mercado/" + id;
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, {
+        method: "DELETE", headers: { "Authorization": "Bearer " + token }
+    });
+    if (!res) return;
+    mostrarToast("Compra eliminada", "info");
+    await cargarQuincenas();
+    renderGestionMercadoLista();
+}
+
+async function agregarCompraGestion() {
+    var monto = parseFloat(document.getElementById("gestionCompraMonto").value);
+    if (!monto || monto <= 0) { mostrarToast("Ingresa un monto valido", "error"); return; }
+    var desc = document.getElementById("gestionCompraDesc").value.trim();
+    var token = await obtenerToken();
+    if (!token) return;
+    var body = { monto: monto };
+    if (desc) body.descripcion = desc;
+    if (sedeActual) body.sede_id = sedeActual;
+    var url = API_URL + "/mercado/";
+    if (sedeActual) url += "?sede_id=" + sedeActual;
+    var res = await fetchConReintentos(url, {
+        method: "POST", headers: authHeaders(token),
+        body: JSON.stringify(body)
+    });
+    if (!res) return;
+    document.getElementById("gestionCompraMonto").value = "";
+    document.getElementById("gestionCompraDesc").value = "";
+    mostrarToast("Compra registrada", "success");
+    await cargarQuincenas();
+    renderGestionMercadoLista();
 }
 
 var _editMercadoId = null;
@@ -1386,9 +1458,8 @@ async function confirmarEdicionMercado() {
     if (!res) return;
     mostrarToast("Compra actualizada", "success");
     cerrarModalEditarMercado();
-    var savedIdx = _mercadoIdxActual;
     await cargarQuincenas();
-    if (savedIdx >= 0) mostrarItemsMercado(savedIdx);
+    if (_gestionMercadoIdx >= 0) renderGestionMercadoLista();
 }
 
 async function guardarPrecioTicket() {
@@ -1410,40 +1481,3 @@ async function guardarPrecioTicket() {
     mostrarToast("Precio actualizado: $" + precio.toLocaleString("es-CO") + " COP", "success");
 }
 
-async function registrarCompra() {
-    var monto = parseFloat(document.getElementById("inputCompraMontoF").value);
-    if (!monto || monto <= 0) { mostrarToast("Ingresa un monto valido", "error"); return; }
-    var desc = document.getElementById("inputCompraDescF").value.trim();
-    var token = await obtenerToken();
-    if (!token) return;
-    var body = { monto: monto };
-    if (desc) body.descripcion = desc;
-    if (sedeActual) body.sede_id = sedeActual;
-    var url = API_URL + "/mercado/";
-    if (sedeActual) url += "?sede_id=" + sedeActual;
-    var res = await fetchConReintentos(url, {
-        method: "POST", headers: authHeaders(token),
-        body: JSON.stringify(body)
-    });
-    if (!res) return;
-    document.getElementById("inputCompraMontoF").value = "";
-    document.getElementById("inputCompraDescF").value = "";
-    mostrarToast("Compra registrada", "success");
-    cargarFinanzas();
-}
-
-async function eliminarCompra(compraId) {
-    if (!confirm("Eliminar esta compra?")) return;
-    var token = await obtenerToken();
-    if (!token) return;
-    var url = API_URL + "/mercado/" + compraId;
-    if (sedeActual) url += "?sede_id=" + sedeActual;
-    var res = await fetchConReintentos(url, {
-        method: "DELETE", headers: { "Authorization": "Bearer " + token }
-    });
-    if (!res) return;
-    mostrarToast("Compra eliminada", "info");
-    var savedIdx = _mercadoIdxActual;
-    await cargarQuincenas();
-    if (savedIdx >= 0) mostrarItemsMercado(savedIdx);
-}
