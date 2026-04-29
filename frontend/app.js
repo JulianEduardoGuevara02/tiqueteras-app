@@ -1272,18 +1272,17 @@ function renderTablaQuincenas(quincenas, offset) {
 
     // Filas de datos
     var rowDefs = [
-        { label: "Pagados", key: "pagados", lc: "text-green-700", vc: "text-green-700", sc: "text-green-500", bg: "bg-green-100" },
-        { label: "Fiados",  key: "fiados",  lc: "text-red-600",   vc: "text-red-600",   sc: "text-red-400",   bg: "bg-red-100"   },
-        { label: "Empresa", key: "empresa", lc: "text-teal-700",  vc: "text-teal-700",  sc: "text-teal-500",  bg: "bg-teal-100"  },
+        { label: "Pagados", key: "pagados", lc: "text-green-700", vc: "text-green-700", sc: "text-green-500" },
+        { label: "Fiados",  key: "fiados",  lc: "text-red-600",   vc: "text-red-600",   sc: "text-red-400"   },
+        { label: "Empresa", key: "empresa", lc: "text-teal-700",  vc: "text-teal-700",  sc: "text-teal-500"  },
     ];
     var dataRows = "";
     rowDefs.forEach(function(rd) {
         dataRows += '<tr class="border-b border-gray-50">';
         dataRows += '<td class="py-2 px-2 text-[11px] font-bold ' + rd.lc + ' whitespace-nowrap">' + rd.label + '</td>';
         quincenas.forEach(function(q, i) {
-            var act = i === 0 && offset === 0;
             var v = q[rd.key];
-            dataRows += '<td class="py-1.5 text-center ' + (act ? rd.bg : '') + '">'
+            dataRows += '<td class="py-1.5 text-center">'
                 + '<span class="block text-base font-bold ' + rd.vc + '">' + (v.tiquetes || 0) + '</span>'
                 + '<span class="block text-xs ' + rd.sc + '">' + fmt(v.cop) + '</span>'
                 + '</td>';
@@ -1295,10 +1294,9 @@ function renderTablaQuincenas(quincenas, offset) {
     var totalRow = '<tr class="border-b-2 border-indigo-100">';
     totalRow += '<td class="py-2 px-2 text-[11px] font-bold text-indigo-700 whitespace-nowrap">Total</td>';
     quincenas.forEach(function(q, i) {
-        var act = i === 0 && offset === 0;
         var tiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
         var cop = q.pagados.cop + q.fiados.cop + q.empresa.cop;
-        totalRow += '<td class="py-1.5 text-center ' + (act ? 'bg-indigo-100' : '') + '">'
+        totalRow += '<td class="py-1.5 text-center">'
             + '<span class="block text-base font-bold text-indigo-700">' + tiq + '</span>'
             + '<span class="block text-xs text-indigo-500">' + fmt(cop) + '</span>'
             + '</td>';
@@ -1308,8 +1306,7 @@ function renderTablaQuincenas(quincenas, offset) {
     // Fila mercado
     var mRow = '<tr><td class="py-2 px-2 text-[11px] font-bold text-orange-700 whitespace-nowrap">Mercado</td>';
     quincenas.forEach(function(q, i) {
-        var act = i === 0 && offset === 0;
-        mRow += '<td class="py-1.5 text-center ' + (act ? 'bg-orange-100' : '') + '">'
+        mRow += '<td class="py-1.5 text-center">'
             + '<span class="block text-sm font-bold text-orange-700">' + fmt(q.mercado.cop) + '</span>'
             + '<button onclick="mostrarItemsMercado(' + i + ')" class="text-[10px] text-orange-400 hover:text-orange-600 underline block w-full text-center">ver/editar</button>'
             + '</td>';

@@ -524,7 +524,7 @@
     </div>
 
     <!-- Modal: Editar compra de mercado -->
-    <div id="modalEditarMercado" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-[55] p-4">
+    <div id="modalEditarMercado" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden flex justify-center items-center z-50 p-4" onclick="if(event.target===this)cerrarModalEditarMercado()">
         <div class="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
             <div class="bg-gradient-to-r from-orange-500 to-orange-400 px-6 py-4 flex items-center justify-between">
                 <div>
@@ -556,6 +556,6 @@
     <!-- Toast container -->
     <div id="toastContainer" class="fixed top-4 right-4 z-[60] space-y-2 pointer-events-none"></div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=2"></script>
 </body>
 </html>
