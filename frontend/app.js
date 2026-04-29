@@ -1150,7 +1150,7 @@ async function cargarFinanzas() {
     var token = await obtenerToken();
     if (!token) return;
 
-    var url = API_URL + "/finanzas/quincenas?offset=0&cantidad=5";
+    var url = API_URL + "/finanzas/quincenas?offset=0&cantidad=4";
     if (sedeActual) url += "&sede_id=" + sedeActual;
 
     var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
@@ -1197,7 +1197,7 @@ async function cargarQuincenas() {
     var token = await obtenerToken();
     if (!token) return;
 
-    var url = API_URL + "/finanzas/quincenas?offset=" + quincenasOffset + "&cantidad=5";
+    var url = API_URL + "/finanzas/quincenas?offset=" + quincenasOffset + "&cantidad=4";
     if (sedeActual) url += "&sede_id=" + sedeActual;
 
     var res = await fetchConReintentos(url, { headers: { "Authorization": "Bearer " + token } });
@@ -1279,8 +1279,8 @@ function renderTablaQuincenas(quincenas, offset) {
             var act = i === 0 && offset === 0;
             var v = q[rd.key];
             dataRows += '<td class="py-1.5 text-center ' + (act ? rd.bg : '') + '">'
-                + '<span class="block text-sm font-bold ' + rd.vc + '">' + (v.tiquetes || 0) + '</span>'
-                + '<span class="block text-[10px] ' + rd.sc + '">' + fmt(v.cop) + '</span>'
+                + '<span class="block text-base font-bold ' + rd.vc + '">' + (v.tiquetes || 0) + '</span>'
+                + '<span class="block text-xs ' + rd.sc + '">' + fmt(v.cop) + '</span>'
                 + '</td>';
         });
         dataRows += '</tr>';
@@ -1294,8 +1294,8 @@ function renderTablaQuincenas(quincenas, offset) {
         var tiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
         var cop = q.pagados.cop + q.fiados.cop + q.empresa.cop;
         totalRow += '<td class="py-1.5 text-center ' + (act ? 'bg-indigo-50/60' : '') + '">'
-            + '<span class="block text-sm font-bold text-indigo-700">' + tiq + '</span>'
-            + '<span class="block text-[10px] text-indigo-500">' + fmt(cop) + '</span>'
+            + '<span class="block text-base font-bold text-indigo-700">' + tiq + '</span>'
+            + '<span class="block text-xs text-indigo-500">' + fmt(cop) + '</span>'
             + '</td>';
     });
     totalRow += '</tr>';
@@ -1375,7 +1375,9 @@ async function guardarEdicionMercado(id) {
     });
     if (!res) return;
     mostrarToast("Compra actualizada", "success");
-    cargarFinanzas();
+    var savedIdx = _mercadoIdxActual;
+    await cargarQuincenas();
+    if (savedIdx >= 0) mostrarItemsMercado(savedIdx);
 }
 
 async function guardarPrecioTicket() {
@@ -1430,5 +1432,7 @@ async function eliminarCompra(compraId) {
     });
     if (!res) return;
     mostrarToast("Compra eliminada", "info");
-    cargarFinanzas();
+    var savedIdx = _mercadoIdxActual;
+    await cargarQuincenas();
+    if (savedIdx >= 0) mostrarItemsMercado(savedIdx);
 }
