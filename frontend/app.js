@@ -1253,7 +1253,12 @@ function renderTablaQuincenas(quincenas, offset) {
     var r1 = '<tr>' + lbl;
     quincenas.forEach(function(q, i) {
         var act = i === 0 && offset === 0;
-        r1 += '<th class="text-center pt-3 pb-0.5 text-sm font-bold tracking-wider ' + (act ? 'text-brand-600' : 'text-gray-500') + '">' + q.semana_iso + '</th>';
+        if (act) {
+            r1 += '<th class="text-center pt-2 pb-1 border-t-[3px] border-brand-500 bg-brand-50/50">'
+                + '<span class="inline-block bg-brand-600 text-white px-3 py-0.5 rounded-lg text-xs font-bold tracking-wide">' + q.semana_iso + '</span></th>';
+        } else {
+            r1 += '<th class="text-center pt-3 pb-1 border-t-[3px] border-transparent text-sm font-medium text-gray-400">' + q.semana_iso + '</th>';
+        }
     });
     r1 += '</tr>';
 
@@ -1261,15 +1266,15 @@ function renderTablaQuincenas(quincenas, offset) {
     var r2 = '<tr>' + lbl;
     quincenas.forEach(function(q, i) {
         var act = i === 0 && offset === 0;
-        r2 += '<th class="text-center pb-2.5 text-[10px] font-medium border-b-2 ' + (act ? 'text-brand-400 border-brand-300' : 'text-gray-400 border-gray-200') + '">' + rangoLabel(q) + '</th>';
+        r2 += '<th class="text-center pb-2.5 text-[10px] border-b-2 ' + (act ? 'text-brand-600 border-brand-400 font-bold bg-brand-50/50' : 'text-gray-400 border-gray-200 font-medium') + '">' + rangoLabel(q) + '</th>';
     });
     r2 += '</tr>';
 
     // Filas de datos
     var rowDefs = [
-        { label: "Pagados", key: "pagados", lc: "text-green-700", vc: "text-green-700", sc: "text-green-500", bg: "bg-green-50/60" },
-        { label: "Fiados",  key: "fiados",  lc: "text-red-600",   vc: "text-red-600",   sc: "text-red-400",   bg: "bg-red-50/60"   },
-        { label: "Empresa", key: "empresa", lc: "text-teal-700",  vc: "text-teal-700",  sc: "text-teal-500",  bg: "bg-teal-50/60"  },
+        { label: "Pagados", key: "pagados", lc: "text-green-700", vc: "text-green-700", sc: "text-green-500", bg: "bg-green-100" },
+        { label: "Fiados",  key: "fiados",  lc: "text-red-600",   vc: "text-red-600",   sc: "text-red-400",   bg: "bg-red-100"   },
+        { label: "Empresa", key: "empresa", lc: "text-teal-700",  vc: "text-teal-700",  sc: "text-teal-500",  bg: "bg-teal-100"  },
     ];
     var dataRows = "";
     rowDefs.forEach(function(rd) {
@@ -1293,7 +1298,7 @@ function renderTablaQuincenas(quincenas, offset) {
         var act = i === 0 && offset === 0;
         var tiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
         var cop = q.pagados.cop + q.fiados.cop + q.empresa.cop;
-        totalRow += '<td class="py-1.5 text-center ' + (act ? 'bg-indigo-50/60' : '') + '">'
+        totalRow += '<td class="py-1.5 text-center ' + (act ? 'bg-indigo-100' : '') + '">'
             + '<span class="block text-base font-bold text-indigo-700">' + tiq + '</span>'
             + '<span class="block text-xs text-indigo-500">' + fmt(cop) + '</span>'
             + '</td>';
@@ -1304,7 +1309,7 @@ function renderTablaQuincenas(quincenas, offset) {
     var mRow = '<tr><td class="py-2 px-2 text-[11px] font-bold text-orange-700 whitespace-nowrap">Mercado</td>';
     quincenas.forEach(function(q, i) {
         var act = i === 0 && offset === 0;
-        mRow += '<td class="py-1.5 text-center ' + (act ? 'bg-orange-50/60' : '') + '">'
+        mRow += '<td class="py-1.5 text-center ' + (act ? 'bg-orange-100' : '') + '">'
             + '<span class="block text-sm font-bold text-orange-700">' + fmt(q.mercado.cop) + '</span>'
             + '<button onclick="mostrarItemsMercado(' + i + ')" class="text-[10px] text-orange-400 hover:text-orange-600 underline block w-full text-center">ver/editar</button>'
             + '</td>';
@@ -1344,7 +1349,7 @@ function mostrarItemsMercado(idx) {
                 + '<span class="text-xs font-semibold text-orange-700 w-20 shrink-0">' + fmt(item.monto) + '</span>'
                 + '<span class="text-xs text-gray-600 flex-1 truncate">' + escaparHtml(item.descripcion) + '</span>'
                 + '<span class="text-[10px] text-gray-300 shrink-0">' + item.fecha + '</span>'
-                + '<button onclick="editarItemMercado(' + item.id + ',' + item.monto + ',\'' + escaparHtml(item.descripcion).replace(/'/g,"\\'") + '\')" class="text-[11px] text-gray-400 hover:text-brand-600 px-1 shrink-0" title="Editar">✎</button>'
+                + '<button onclick="abrirModalEditarMercado(' + item.id + ',' + item.monto + ',\'' + escaparHtml(item.descripcion).replace(/'/g,"\\'") + '\',\'' + item.fecha + '\')" class="text-[11px] text-gray-400 hover:text-brand-600 px-1 shrink-0" title="Editar">✎</button>'
                 + '<button onclick="eliminarCompra(' + item.id + ')" class="text-[11px] text-red-300 hover:text-red-500 px-1 shrink-0" title="Eliminar">×</button>'
                 + '</div>';
         });
@@ -1354,27 +1359,36 @@ function mostrarItemsMercado(idx) {
     panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
 }
 
-function editarItemMercado(id, monto, descripcion) {
-    var row = document.getElementById("itemRow_" + id);
-    if (!row) return;
-    row.innerHTML = '<input type="number" id="editMonto_' + id + '" value="' + monto + '" class="w-20 shrink-0 border border-orange-300 rounded px-1 py-0.5 text-xs font-semibold text-orange-700 outline-none">'
-        + '<input type="text" id="editDesc_' + id + '" value="' + escaparHtml(descripcion) + '" class="flex-1 border border-gray-200 rounded px-1 py-0.5 text-xs text-gray-700 outline-none min-w-0">'
-        + '<button onclick="guardarEdicionMercado(' + id + ')" class="text-[11px] text-green-600 hover:text-green-800 px-1.5 py-0.5 rounded bg-green-50 shrink-0">✓</button>'
-        + '<button onclick="mostrarItemsMercado(' + _mercadoIdxActual + ')" class="text-[11px] text-gray-400 hover:text-gray-600 px-1 shrink-0">✕</button>';
+var _editMercadoId = null;
+
+function abrirModalEditarMercado(id, monto, desc, fecha) {
+    _editMercadoId = id;
+    document.getElementById("editMercadoMonto").value = monto;
+    document.getElementById("editMercadoDesc").value = desc;
+    document.getElementById("editMercadoFechaLabel").textContent = fecha || "";
+    document.getElementById("modalEditarMercado").classList.remove("hidden");
+    setTimeout(function() { document.getElementById("editMercadoMonto").focus(); }, 50);
 }
 
-async function guardarEdicionMercado(id) {
-    var monto = parseFloat(document.getElementById("editMonto_" + id).value);
-    var desc = document.getElementById("editDesc_" + id).value.trim();
+function cerrarModalEditarMercado() {
+    document.getElementById("modalEditarMercado").classList.add("hidden");
+    _editMercadoId = null;
+}
+
+async function confirmarEdicionMercado() {
+    if (!_editMercadoId) return;
+    var monto = parseFloat(document.getElementById("editMercadoMonto").value);
+    var desc = document.getElementById("editMercadoDesc").value.trim();
     if (!monto || monto <= 0) { mostrarToast("Monto inválido", "error"); return; }
     var token = await obtenerToken();
     if (!token) return;
-    var res = await fetchConReintentos(API_URL + "/mercado/" + id, {
+    var res = await fetchConReintentos(API_URL + "/mercado/" + _editMercadoId, {
         method: "PUT", headers: authHeaders(token),
         body: JSON.stringify({ monto: monto, descripcion: desc })
     });
     if (!res) return;
     mostrarToast("Compra actualizada", "success");
+    cerrarModalEditarMercado();
     var savedIdx = _mercadoIdxActual;
     await cargarQuincenas();
     if (savedIdx >= 0) mostrarItemsMercado(savedIdx);
