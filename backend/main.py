@@ -791,38 +791,19 @@ def editar_compra(
     db.commit()
     return {"message": "Compra actualizada"}
 
-# === Helpers quincenas ===
+# === Helpers semanas ===
 
-def _rangos_quincenas(cantidad: int, offset: int):
+def _rangos_semanas(cantidad: int, offset: int):
+    """Returns list of (year_iso, week_iso, lunes, sabado) going backward, newest first."""
     hoy = date.today()
-    year, month = hoy.year, hoy.month
-    num = 1 if hoy.day <= 15 else 2
-    for _ in range(offset):
-        if num == 2:
-            num = 1
-        else:
-            num = 2
-            month -= 1
-            if month == 0:
-                month = 12
-                year -= 1
+    lunes = hoy - timedelta(days=hoy.weekday())  # Monday of current week
+    lunes -= timedelta(weeks=offset)
     rangos = []
     for _ in range(cantidad):
-        if num == 1:
-            inicio = date(year, month, 1)
-            fin = date(year, month, 15)
-        else:
-            inicio = date(year, month, 16)
-            fin = date(year, month, cal_module.monthrange(year, month)[1])
-        rangos.append((year, month, num, inicio, fin))
-        if num == 2:
-            num = 1
-        else:
-            num = 2
-            month -= 1
-            if month == 0:
-                month = 12
-                year -= 1
+        sabado = lunes + timedelta(days=5)
+        iso_cal = lunes.isocalendar()
+        rangos.append((iso_cal[0], iso_cal[1], lunes, sabado))
+        lunes -= timedelta(weeks=1)
     return rangos
 
 @app.get("/finanzas/quincenas")
@@ -835,12 +816,12 @@ def resumen_quincenas(
 ):
     admin = obtener_admin_sede(db, auth_user.get("email", ""))
     sid = obtener_sede_id(admin, sede_id)
-    rangos = _rangos_quincenas(cantidad, offset)
+    rangos = _rangos_semanas(cantidad, offset)
     if not rangos:
         return {"quincenas": [], "precio_ticket": 0}
 
-    fecha_global_inicio = rangos[-1][3]
-    fecha_global_fin = rangos[0][4]
+    fecha_global_inicio = rangos[-1][2]
+    fecha_global_fin = rangos[0][3]
     dias_total = (fecha_global_fin - fecha_global_inicio).days + 1
 
     q_usuarios = db.query(Usuario).options(
@@ -859,9 +840,9 @@ def resumen_quincenas(
     config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
     precio = config.precio_ticket if config and config.precio_ticket else 0.0
 
-    # Mapear fecha → índice de quincena
+    # Mapear fecha → índice de semana
     fecha_a_idx = {}
-    for i, (_, _, _, inicio, fin) in enumerate(rangos):
+    for i, (_, _, inicio, fin) in enumerate(rangos):
         d = inicio
         while d <= fin:
             fecha_a_idx[d] = i
@@ -883,9 +864,8 @@ def resumen_quincenas(
             elif estado in ("empresa", "past_empresa"):
                 stats[idx]["empresa"] += 1
 
-    meses_es = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"]
     resultado = []
-    for i, (year, month, num, inicio, fin) in enumerate(rangos):
+    for i, (year_iso, week_iso, inicio, fin) in enumerate(rangos):
         inicio_dt = datetime.combine(inicio, datetime.min.time())
         fin_dt = datetime.combine(fin, datetime.max.time())
         q_c = db.query(ComprasMercado).filter(
@@ -896,9 +876,8 @@ def resumen_quincenas(
             q_c = q_c.filter(ComprasMercado.sede_id == sid)
         compras = q_c.order_by(desc(ComprasMercado.fecha)).all()
         resultado.append({
-            "year": year,
-            "mes_nombre": meses_es[month - 1],
-            "numero": num,
+            "year": year_iso,
+            "semana_iso": f"{year_iso:04d}{week_iso:02d}",
             "fecha_inicio": str(inicio),
             "fecha_fin": str(fin),
             "pagados": {"tiquetes": stats[i]["pagados"], "cop": stats[i]["pagados"] * precio},

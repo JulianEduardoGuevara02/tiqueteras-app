@@ -1170,9 +1170,13 @@ async function cargarFinanzas() {
         document.getElementById("fzEmpresaTiq").textContent = q.empresa.tiquetes;
         document.getElementById("fzEmpresaCOP").textContent = fmt(q.empresa.cop);
         document.getElementById("fzMercadoCOP").textContent = fmt(q.mercado.cop);
+        var mAbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
         var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
-        document.getElementById("finanzasPeriodoLabel").textContent =
-            q.mes_nombre + " · Q" + q.numero + " · " + pi[2] + "–" + pf[2] + " " + pi[1].replace(/^0/, "") + "/" + pi[0];
+        var mi = mAbr[parseInt(pi[1])-1], mf = mAbr[parseInt(pf[1])-1];
+        var rango = mi === mf
+            ? parseInt(pi[2]) + "–" + parseInt(pf[2]) + " " + mi
+            : parseInt(pi[2]) + " " + mi + "–" + parseInt(pf[2]) + " " + mf;
+        document.getElementById("finanzasPeriodoLabel").textContent = "Sem. " + q.semana_iso + " · " + rango;
     }
 
     _quincenasData = data.quincenas;
@@ -1228,51 +1232,32 @@ function renderTablaQuincenas(quincenas, offset) {
     }
 
     var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
-
-    // Construir grupos para celdas combinadas
-    var yearGroups = [], monthGroups = [];
-    quincenas.forEach(function(q) {
-        if (!yearGroups.length || yearGroups[yearGroups.length-1].year !== q.year)
-            yearGroups.push({ year: q.year, count: 1 });
-        else yearGroups[yearGroups.length-1].count++;
-        var mk = q.year + "-" + q.mes_nombre;
-        if (!monthGroups.length || monthGroups[monthGroups.length-1].key !== mk)
-            monthGroups.push({ key: mk, nombre: q.mes_nombre, count: 1 });
-        else monthGroups[monthGroups.length-1].count++;
-    });
+    var mAbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    var rangoLabel = function(q) {
+        var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
+        var mi = mAbr[parseInt(pi[1])-1], mf = mAbr[parseInt(pf[1])-1];
+        return mi === mf
+            ? parseInt(pi[2]) + "–" + parseInt(pf[2]) + " " + mi
+            : parseInt(pi[2]) + " " + mi + "–" + parseInt(pf[2]) + " " + mf;
+    };
 
     var lbl = '<td class="py-1 px-2 w-16"></td>';
 
-    // Fila año
+    // Fila 1: código semana YYYYWW
     var r1 = '<tr>' + lbl;
-    yearGroups.forEach(function(g) {
-        r1 += '<th colspan="' + g.count + '" class="text-center pt-2 pb-0.5 text-[11px] font-bold text-gray-500 border-b border-gray-200">' + g.year + '</th>';
+    quincenas.forEach(function(q, i) {
+        var act = i === 0 && offset === 0;
+        r1 += '<th class="text-center pt-3 pb-0.5 text-sm font-bold tracking-wider ' + (act ? 'text-brand-600' : 'text-gray-500') + '">' + q.semana_iso + '</th>';
     });
     r1 += '</tr>';
 
-    // Fila mes
+    // Fila 2: rango de fechas + mes abreviado
     var r2 = '<tr>' + lbl;
-    monthGroups.forEach(function(g) {
-        r2 += '<th colspan="' + g.count + '" class="text-center py-0.5 text-xs font-semibold text-gray-600 border-b border-gray-200">' + g.nombre + '</th>';
+    quincenas.forEach(function(q, i) {
+        var act = i === 0 && offset === 0;
+        r2 += '<th class="text-center pb-2.5 text-[10px] font-medium border-b-2 ' + (act ? 'text-brand-400 border-brand-300' : 'text-gray-400 border-gray-200') + '">' + rangoLabel(q) + '</th>';
     });
     r2 += '</tr>';
-
-    // Fila Q número
-    var r3 = '<tr>' + lbl;
-    quincenas.forEach(function(q, i) {
-        var act = i === 0 && offset === 0;
-        r3 += '<th class="text-center py-0.5 text-[11px] font-semibold ' + (act ? 'text-brand-600' : 'text-gray-400') + ' border-b border-gray-100">Q' + q.numero + '</th>';
-    });
-    r3 += '</tr>';
-
-    // Fila rango fechas
-    var r4 = '<tr>' + lbl;
-    quincenas.forEach(function(q, i) {
-        var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
-        var act = i === 0 && offset === 0;
-        r4 += '<th class="text-center pb-1.5 text-[10px] border-b-2 ' + (act ? 'text-brand-500 border-brand-300' : 'text-gray-400 border-gray-300') + '">' + pi[2] + '–' + pf[2] + '</th>';
-    });
-    r4 += '</tr>';
 
     // Filas de datos
     var rowDefs = [
@@ -1307,7 +1292,7 @@ function renderTablaQuincenas(quincenas, offset) {
     mRow += '</tr>';
 
     container.innerHTML = '<table class="w-full border-collapse min-w-[480px]">'
-        + '<thead>' + r1 + r2 + r3 + r4 + '</thead>'
+        + '<thead>' + r1 + r2 + '</thead>'
         + '<tbody>' + dataRows + mRow + '</tbody>'
         + '</table>';
 }
@@ -1321,7 +1306,13 @@ function mostrarItemsMercado(idx) {
 
     if (!_quincenasData || !_quincenasData[idx]) { panel.classList.add("hidden"); return; }
     var q = _quincenasData[idx];
-    titulo.textContent = "Compras · " + q.mes_nombre + " Q" + q.numero + " (" + q.fecha_inicio.slice(8) + "–" + q.fecha_fin.slice(8) + ")";
+    var mAbrP = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+    var piP = q.fecha_inicio.split("-"), pfP = q.fecha_fin.split("-");
+    var miP = mAbrP[parseInt(piP[1])-1], mfP = mAbrP[parseInt(pfP[1])-1];
+    var rlP = miP === mfP
+        ? parseInt(piP[2]) + "–" + parseInt(pfP[2]) + " " + miP
+        : parseInt(piP[2]) + " " + miP + "–" + parseInt(pfP[2]) + " " + mfP;
+    titulo.textContent = "Compras · Sem. " + q.semana_iso + " (" + rlP + ")";
 
     var items = q.mercado.items;
     if (!items || items.length === 0) {
