@@ -1149,19 +1149,20 @@ function cerrarFinanzas() {
     _gestionMercadoIdx = -1;
 }
 
-function _renderTarjetasResumen(q) {
+function _renderTarjetasCaja(caja) {
+    if (!caja) return;
     var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
-    document.getElementById("fzPagadosTiq").textContent = q.pagados.tiquetes;
-    document.getElementById("fzPagadosCOP").textContent = fmt(q.pagados.cop);
-    document.getElementById("fzFiadosTiq").textContent = q.fiados.tiquetes;
-    document.getElementById("fzFiadosCOP").textContent = fmt(q.fiados.cop);
-    document.getElementById("fzEmpresaTiq").textContent = q.empresa.tiquetes;
-    document.getElementById("fzEmpresaCOP").textContent = fmt(q.empresa.cop);
-    document.getElementById("fzMercadoCOP").textContent = fmt(q.mercado.cop);
-    var totalTiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
-    var totalCOP = q.pagados.cop + q.fiados.cop + q.empresa.cop;
-    document.getElementById("fzTotalTiq").textContent = totalTiq;
-    document.getElementById("fzTotalCOP").textContent = fmt(totalCOP);
+    var tiq = function(n) { return (n || 0) + " tiquete" + ((n || 0) === 1 ? "" : "s"); };
+    document.getElementById("fzCajaPagadoCOP").textContent = fmt(caja.pagado.cop);
+    document.getElementById("fzCajaPagadoTiq").textContent = tiq(caja.pagado.tiquetes);
+    document.getElementById("fzCajaDeudaCOP").textContent = fmt(caja.deuda.cop);
+    document.getElementById("fzCajaDeudaTiq").textContent = tiq(caja.deuda.tiquetes);
+    document.getElementById("fzCajaEmpresaCOP").textContent = fmt(caja.empresa.cop);
+    document.getElementById("fzCajaEmpresaTiq").textContent = tiq(caja.empresa.tiquetes);
+}
+
+function _renderPeriodoLabel(q) {
+    if (!q) return;
     var mAbr = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
     var pi = q.fecha_inicio.split("-"), pf = q.fecha_fin.split("-");
     var mi = mAbr[parseInt(pi[1])-1], mf = mAbr[parseInt(pf[1])-1];
@@ -1187,8 +1188,9 @@ async function cargarFinanzas() {
     document.getElementById("inputPrecioTicket").value = precioTicket > 0 ? precioTicket : "";
     document.getElementById("inputPrecioEmpresa").value = precioEmpresa > 0 ? precioEmpresa : "";
 
+    _renderTarjetasCaja(data.caja);
     if (data.quincenas && data.quincenas.length > 0) {
-        _renderTarjetasResumen(data.quincenas[0]);
+        _renderPeriodoLabel(data.quincenas[0]);
     }
 
     _quincenasData = data.quincenas;
@@ -1211,8 +1213,9 @@ async function cargarQuincenas() {
 
     var data = await res.json();
     _quincenasData = data.quincenas;
+    _renderTarjetasCaja(data.caja);
     if (quincenasOffset === 0 && data.quincenas && data.quincenas.length > 0) {
-        _renderTarjetasResumen(data.quincenas[0]);
+        _renderPeriodoLabel(data.quincenas[0]);
     }
     renderTablaQuincenas(data.quincenas, quincenasOffset);
     _actualizarNavQuincenas();

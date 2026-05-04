@@ -881,6 +881,12 @@ def resumen_quincenas(
             d += timedelta(days=1)
 
     stats = [{"pagados": 0, "fiados": 0, "empresa": 0} for _ in rangos]
+    caja_pagado_tiq = 0
+    caja_deuda_tiq = 0
+    hoy = date.today()
+    lunes_actual = hoy - timedelta(days=hoy.weekday())
+    caja_empresa_tiq = 0
+
     for u in usuarios:
         proy = calcular_proyeccion_usuario(u, fecha_global_inicio, dias_total, dias_globales_set)
         for dia in proy["calendario"]:
@@ -895,6 +901,17 @@ def resumen_quincenas(
                 stats[idx]["fiados"] += 1
             elif estado in ("empresa", "past_empresa"):
                 stats[idx]["empresa"] += 1
+
+        if (getattr(u, "tipo", "recurrente") or "recurrente") == "empresa":
+            for e in u.excepciones:
+                if e.tipo_excepcion == "Asistencia" and e.fecha >= lunes_actual:
+                    caja_empresa_tiq += 1
+        else:
+            saldo = proy["saldo_actual"]
+            if saldo > 0:
+                caja_pagado_tiq += saldo
+            elif saldo < 0:
+                caja_deuda_tiq += abs(saldo)
 
     resultado = []
     for i, (year_iso, week_iso, inicio, fin) in enumerate(rangos):
@@ -920,7 +937,16 @@ def resumen_quincenas(
                 "items": [{"id": c.id, "monto": c.monto, "descripcion": c.descripcion or "", "fecha": c.fecha.strftime("%Y-%m-%d")} for c in compras],
             },
         })
-    return {"quincenas": resultado, "precio_ticket": precio, "precio_empresa": precio_empresa}
+    return {
+        "quincenas": resultado,
+        "precio_ticket": precio,
+        "precio_empresa": precio_empresa,
+        "caja": {
+            "pagado":  {"tiquetes": caja_pagado_tiq,  "cop": caja_pagado_tiq  * precio},
+            "deuda":   {"tiquetes": caja_deuda_tiq,   "cop": caja_deuda_tiq   * precio},
+            "empresa": {"tiquetes": caja_empresa_tiq, "cop": caja_empresa_tiq * precio_empresa},
+        },
+    }
 
 # === Endpoints: Resumen financiero quincenal ===
 
