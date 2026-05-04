@@ -891,7 +891,7 @@ def resumen_quincenas(
             estado = dia["estado"]
             if estado in ("covered", "past_covered"):
                 stats[idx]["pagados"] += 1
-            elif estado in ("fiado", "past_fiado", "sin_cobertura"):
+            elif estado in ("fiado", "past_fiado"):
                 stats[idx]["fiados"] += 1
             elif estado in ("empresa", "past_empresa"):
                 stats[idx]["empresa"] += 1
