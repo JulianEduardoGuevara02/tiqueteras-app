@@ -1,8 +1,10 @@
 import os
 import calendar as cal_module
-from fastapi import FastAPI, Depends, HTTPException, Query, Request
+import logging
+from fastapi import FastAPI, Depends, HTTPException, Query, Request, BackgroundTasks, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.security import APIKeyHeader
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from datetime import date, datetime, timedelta
@@ -10,8 +12,46 @@ from pydantic import BaseModel
 from typing import Optional
 import io
 import openpyxl
+import httpx
 from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria, Sede, AdminSede, ConfiguracionSede, ComprasMercado
 from auth import verificar_token
+
+logger = logging.getLogger(__name__)
+
+# === Auth para flujos automatizados (Power Automate) ===
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def verificar_api_key(api_key: Optional[str] = Security(api_key_header)):
+    expected = os.getenv("ALERTAS_API_KEY", "")
+    if not expected:
+        raise HTTPException(status_code=503, detail="ALERTAS_API_KEY no configurada en el servidor")
+    if not api_key or api_key != expected:
+        raise HTTPException(status_code=401, detail="API key inválida")
+    return api_key
+
+# === Webhook de compra (Power Automate) ===
+
+def enviar_webhook_compra(payload: dict):
+    url = os.getenv("WEBHOOK_COMPRA_URL", "")
+    if not url:
+        return
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            r = client.post(url, json=payload)
+            r.raise_for_status()
+    except Exception as e:
+        try:
+            db = SessionLocal()
+            db.add(LogAuditoria(
+                email="sistema",
+                accion="Webhook compra fallido",
+                detalle=f"{payload.get('email','?')}: {str(e)[:200]}",
+                sede_id=payload.get("sede_id"),
+            ))
+            db.commit()
+            db.close()
+        except Exception:
+            logger.warning("No se pudo registrar fallo de webhook en log_auditoria")
 
 app = FastAPI(title="API Tiqueteras")
 
@@ -276,7 +316,13 @@ def crear_usuario(user: UsuarioCreate, db: Session = Depends(get_db), auth_user:
     return {"message": "Usuario creado"}
 
 @app.post("/usuarios/{usuario_id}/tickets")
-def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(get_db), auth_user: dict = Depends(verificar_token)):
+def agregar_tickets(
+    usuario_id: int,
+    saldo: SaldoCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    auth_user: dict = Depends(verificar_token),
+):
     admin = obtener_admin_sede(db, auth_user.get("email", ""))
     usuario = db.query(Usuario).filter(Usuario.id == usuario_id).first()
     if not usuario:
@@ -313,6 +359,31 @@ def agregar_tickets(usuario_id: int, saldo: SaldoCreate, db: Session = Depends(g
         detalle += f" — {saldo.observacion}"
     registrar_log(db, admin.email, "Ajustar tickets", detalle, usuario.sede_id)
     db.commit()
+
+    # Webhook de confirmación (solo abonos positivos a usuarios con email)
+    if cantidad > 0 and usuario.email:
+        db.refresh(usuario)
+        dgs = set()
+        if usuario.sede_id is not None:
+            dgs = {d.fecha for d in db.query(DiaGlobal).filter_by(sede_id=usuario.sede_id).all()}
+        proy = calcular_proyeccion_usuario(usuario, date.today(), 90, dgs)
+        sede_nombre = ""
+        if usuario.sede_id is not None:
+            s = db.query(Sede).filter_by(id=usuario.sede_id).first()
+            sede_nombre = s.nombre if s else ""
+        payload = {
+            "email": usuario.email,
+            "nombre": usuario.nombre,
+            "sede": sede_nombre,
+            "sede_id": usuario.sede_id,
+            "tipo": getattr(usuario, "tipo", "recurrente") or "recurrente",
+            "tiquetes_agregados": cantidad,
+            "saldo_total": proy["saldo_actual"],
+            "fecha_cobertura": proy["fecha_cobertura"],
+            "monto_pagado": monto,
+        }
+        background_tasks.add_task(enviar_webhook_compra, payload)
+
     return {"message": "Tickets ajustados", "cantidad": cantidad}
 
 @app.put("/usuarios/{usuario_id}/email")
@@ -327,6 +398,77 @@ def actualizar_email(usuario_id: int, req: EmailUpdate, db: Session = Depends(ge
     registrar_log(db, admin.email, "Actualizar email", f"{usuario.nombre}: {email_anterior} -> {usuario.email or 'vacio'}", usuario.sede_id)
     db.commit()
     return {"message": "Email actualizado", "email": usuario.email}
+
+# === Endpoint: Alertas para Power Automate ===
+
+@app.get("/alertas/saldo-bajo")
+def alertas_saldo_bajo(
+    tipo: str = Query(default="recurrente"),
+    db: Session = Depends(get_db),
+    api_key: str = Depends(verificar_api_key),
+):
+    if tipo not in ("recurrente", "esporadico"):
+        raise HTTPException(status_code=400, detail="tipo debe ser 'recurrente' o 'esporadico'")
+
+    usuarios = db.query(Usuario).options(
+        joinedload(Usuario.saldos),
+        joinedload(Usuario.excepciones),
+    ).filter(
+        Usuario.activo == 1,
+        Usuario.tipo == tipo,
+        Usuario.email.isnot(None),
+        Usuario.email != "",
+    ).all()
+
+    sedes_map = {s.id: s.nombre for s in db.query(Sede).all()}
+    dias_globales_por_sede: dict = {}
+    for d in db.query(DiaGlobal).all():
+        dias_globales_por_sede.setdefault(d.sede_id, set()).add(d.fecha)
+
+    hoy = date.today()
+
+    def estado_usuario(u: Usuario) -> dict:
+        dgs = dias_globales_por_sede.get(u.sede_id, set())
+        proy = calcular_proyeccion_usuario(u, hoy, 30, dgs)
+        saldo = proy["saldo_actual"]
+        return {
+            "sede": sedes_map.get(u.sede_id, "Sin sede"),
+            "sede_id": u.sede_id,
+            "tiquetes": max(saldo, 0),
+            "deuda": abs(saldo) if saldo < 0 else 0,
+            "fecha_cobertura": proy["fecha_cobertura"],
+        }
+
+    if tipo == "recurrente":
+        # Por usuario: alerta si saldo < 2 (incluye deuda)
+        resultado = []
+        for u in usuarios:
+            est = estado_usuario(u)
+            if est["tiquetes"] < 2:
+                resultado.append({
+                    "email": u.email,
+                    "nombre": u.nombre,
+                    "tipo": "recurrente",
+                    "sedes": [est],
+                })
+        return {"usuarios": resultado, "total": len(resultado), "tipo": tipo}
+
+    # Esporádicos: agrupar por email; alerta si ALGUNA sede tiene tiquetes < 2
+    por_email: dict = {}
+    for u in usuarios:
+        info = por_email.setdefault(u.email, {"nombre": u.nombre, "sedes": []})
+        info["sedes"].append(estado_usuario(u))
+
+    resultado = []
+    for email, info in por_email.items():
+        if any(s["tiquetes"] < 2 for s in info["sedes"]):
+            resultado.append({
+                "email": email,
+                "nombre": info["nombre"],
+                "tipo": "esporadico",
+                "sedes": info["sedes"],
+            })
+    return {"usuarios": resultado, "total": len(resultado), "tipo": tipo}
 
 @app.get("/dashboard")
 def obtener_dashboard(

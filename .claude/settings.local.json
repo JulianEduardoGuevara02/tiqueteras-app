@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(python -c \"import models; import main; print\\('OK'\\)\")",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(/c/Users/Usuario1/AppData/Local/Programs/Python/Python312/python.exe -c \"import ast; ast.parse\\(open\\(r'C:\\\\Users\\\\Usuario1\\\\gestionAlmuerzos\\\\almuerzos-app-online\\\\backend\\\\main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(r'C:\\\\Users\\\\Usuario1\\\\gestionAlmuerzos\\\\almuerzos-app-online\\\\backend\\\\main.py', encoding='utf-8'\\).read\\(\\)\\); print\\('OK'\\)\")"
     ]
   }
 }
