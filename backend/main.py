@@ -196,14 +196,8 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         come = False
         estado_base = ""
 
-        if es_empresa:
-            # Cuenta empresa: come solo cuando hay asistencia explícita (igual que esporádico)
-            if tipo_exc == "Asistencia":
-                come = True
-                estado_base = "empresa"
-            else:
-                estado_base = "sunday_blocked"
-        elif es_esporadico:
+        if es_empresa or es_esporadico:
+            # Cuentas empresa y esporadicas: comen solo cuando hay asistencia explícita
             if tipo_exc == "Asistencia":
                 come = True
             else:
@@ -219,10 +213,10 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
             else:
                 come = True
 
-        if come and not es_empresa:
+        if come:
             if tickets_restantes > 0:
                 tickets_restantes -= 1
-                estado_base = "covered"
+                estado_base = "empresa" if es_empresa else "covered"
                 if tickets_restantes == 0:
                     fecha_cobertura = fecha_iter
             else:
@@ -240,7 +234,7 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
             estado_visual = estado_base
         else:
             if estado_base == "fiado":
-                estado_visual = "fiado" if es_esporadico else "sin_cobertura"
+                estado_visual = "fiado" if (es_esporadico or es_empresa) else "sin_cobertura"
             else:
                 estado_visual = estado_base
 
@@ -332,9 +326,15 @@ def agregar_tickets(
     # Calcular cantidad desde monto si se provee
     if saldo.monto_pagado is not None and saldo.monto_pagado > 0:
         config = db.query(ConfiguracionSede).filter_by(sede_id=usuario.sede_id).first()
-        precio = config.precio_ticket if config and config.precio_ticket > 0 else 0.0
-        if precio <= 0:
-            raise HTTPException(status_code=400, detail="Configura el precio del tiquete antes de registrar un pago por monto")
+        es_empresa_user = (getattr(usuario, "tipo", "recurrente") or "recurrente") == "empresa"
+        if es_empresa_user:
+            precio = config.precio_empresa if config and config.precio_empresa > 0 else 0.0
+            if precio <= 0:
+                raise HTTPException(status_code=400, detail="Configura el precio empresa antes de registrar un pago por monto")
+        else:
+            precio = config.precio_ticket if config and config.precio_ticket > 0 else 0.0
+            if precio <= 0:
+                raise HTTPException(status_code=400, detail="Configura el precio del tiquete antes de registrar un pago por monto")
         cantidad = round(saldo.monto_pagado / precio)
         precio_snap = precio
         monto = saldo.monto_pagado
@@ -837,7 +837,11 @@ def obtener_configuracion(
     admin = obtener_admin_sede(db, auth_user.get("email", ""))
     sid = obtener_sede_id(admin, sede_id)
     config = db.query(ConfiguracionSede).filter_by(sede_id=sid).first()
-    return {"precio_ticket": config.precio_ticket if config else 0.0, "sede_id": sid}
+    return {
+        "precio_ticket": config.precio_ticket if config else 0.0,
+        "precio_empresa": config.precio_empresa if config else 0.0,
+        "sede_id": sid,
+    }
 
 @app.put("/configuracion/precio-ticket")
 def actualizar_precio_ticket(
@@ -1022,14 +1026,17 @@ def resumen_quincenas(
             fecha_a_idx[d] = i
             d += timedelta(days=1)
 
-    stats = [{"pagados": 0, "fiados": 0, "empresa": 0} for _ in rangos]
+    stats = [{
+        "pagados": 0, "fiados": 0,
+        "empresa_pagados": 0, "empresa_fiados": 0,
+    } for _ in rangos]
     caja_pagado_tiq = 0
     caja_deuda_tiq = 0
-    hoy = date.today()
-    lunes_actual = hoy - timedelta(days=hoy.weekday())
-    caja_empresa_tiq = 0
+    caja_empresa_pagado_tiq = 0
+    caja_empresa_deuda_tiq = 0
 
     for u in usuarios:
+        es_emp = (getattr(u, "tipo", "recurrente") or "recurrente") == "empresa"
         proy = calcular_proyeccion_usuario(u, fecha_global_inicio, dias_total, dias_globales_set)
         for dia in proy["calendario"]:
             fd = date.fromisoformat(dia["fecha"])
@@ -1037,19 +1044,24 @@ def resumen_quincenas(
             if idx is None:
                 continue
             estado = dia["estado"]
-            if estado in ("covered", "past_covered"):
-                stats[idx]["pagados"] += 1
-            elif estado in ("fiado", "past_fiado"):
-                stats[idx]["fiados"] += 1
-            elif estado in ("empresa", "past_empresa"):
-                stats[idx]["empresa"] += 1
+            if es_emp:
+                if estado in ("empresa", "past_empresa"):
+                    stats[idx]["empresa_pagados"] += 1
+                elif estado in ("fiado", "past_fiado"):
+                    stats[idx]["empresa_fiados"] += 1
+            else:
+                if estado in ("covered", "past_covered"):
+                    stats[idx]["pagados"] += 1
+                elif estado in ("fiado", "past_fiado"):
+                    stats[idx]["fiados"] += 1
 
-        if (getattr(u, "tipo", "recurrente") or "recurrente") == "empresa":
-            for e in u.excepciones:
-                if e.tipo_excepcion == "Asistencia" and e.fecha >= lunes_actual:
-                    caja_empresa_tiq += 1
+        saldo = proy["saldo_actual"]
+        if es_emp:
+            if saldo > 0:
+                caja_empresa_pagado_tiq += saldo
+            elif saldo < 0:
+                caja_empresa_deuda_tiq += abs(saldo)
         else:
-            saldo = proy["saldo_actual"]
             if saldo > 0:
                 caja_pagado_tiq += saldo
             elif saldo < 0:
@@ -1073,7 +1085,12 @@ def resumen_quincenas(
             "fecha_fin": str(fin),
             "pagados": {"tiquetes": stats[i]["pagados"], "cop": stats[i]["pagados"] * precio},
             "fiados":  {"tiquetes": stats[i]["fiados"],  "cop": stats[i]["fiados"]  * precio},
-            "empresa": {"tiquetes": stats[i]["empresa"], "cop": stats[i]["empresa"] * precio_empresa},
+            "empresa": {
+                "pagados": stats[i]["empresa_pagados"],
+                "fiados":  stats[i]["empresa_fiados"],
+                "cop_pagados": stats[i]["empresa_pagados"] * precio_empresa,
+                "cop_fiados":  stats[i]["empresa_fiados"]  * precio_empresa,
+            },
             "mercado": {
                 "cop": sum(c.monto for c in compras),
                 "items": [{"id": c.id, "monto": c.monto, "descripcion": c.descripcion or "", "fecha": c.fecha.strftime("%Y-%m-%d")} for c in compras],
@@ -1084,9 +1101,12 @@ def resumen_quincenas(
         "precio_ticket": precio,
         "precio_empresa": precio_empresa,
         "caja": {
-            "pagado":  {"tiquetes": caja_pagado_tiq,  "cop": caja_pagado_tiq  * precio},
-            "deuda":   {"tiquetes": caja_deuda_tiq,   "cop": caja_deuda_tiq   * precio},
-            "empresa": {"tiquetes": caja_empresa_tiq, "cop": caja_empresa_tiq * precio_empresa},
+            "pagado": {"tiquetes": caja_pagado_tiq, "cop": caja_pagado_tiq * precio},
+            "deuda":  {"tiquetes": caja_deuda_tiq,  "cop": caja_deuda_tiq  * precio},
+            "empresa": {
+                "pagado": {"tiquetes": caja_empresa_pagado_tiq, "cop": caja_empresa_pagado_tiq * precio_empresa},
+                "deuda":  {"tiquetes": caja_empresa_deuda_tiq,  "cop": caja_empresa_deuda_tiq  * precio_empresa},
+            },
         },
     }
 

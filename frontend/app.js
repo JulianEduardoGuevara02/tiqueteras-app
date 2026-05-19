@@ -240,6 +240,11 @@ async function cargarConfiguracion() {
     if (!res || res.status === 403) return;
     var data = await res.json();
     precioTicket = data.precio_ticket || 0;
+    precioEmpresa = data.precio_empresa || 0;
+}
+
+function precioActualUsuario() {
+    return usuarioActualTipo === "empresa" ? precioEmpresa : precioTicket;
 }
 
 function navegarCalendario(dias) {
@@ -419,8 +424,8 @@ function renderizarCalendario(data) {
         var esEsporadico = user.tipo === "esporadico";
         var esEmpresa = user.tipo === "empresa";
         var saldoColor = user.saldo_actual < 0 ? "text-red-500" : (esEmpresa ? "text-teal-600" : "text-brand-600");
-        var saldoSign = user.saldo_actual < 0 ? "" : (esEmpresa ? "" : "+");
-        var saldoBadge = esEmpresa ? '' : '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
+        var saldoSign = user.saldo_actual < 0 ? "" : "+";
+        var saldoBadge = '<span class="' + saldoColor + ' text-[11px] font-semibold ml-1.5">' + saldoSign + user.saldo_actual + '</span>';
         var inactivoBadge = esInactivo ? '<span class="text-[10px] text-orange-500 bg-orange-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Inactivo</span>' : '';
         var esporadicoBadge = (!esInactivo && esEsporadico) ? '<span class="text-[10px] text-purple-500 bg-purple-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Esporadico</span>' : '';
         var empresaBadge = (!esInactivo && esEmpresa) ? '<span class="text-[10px] text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded ml-1.5 font-medium">Empresa</span>' : '';
@@ -579,24 +584,21 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
     var saldoCOPEl = document.getElementById("modalSaldoCOP");
     var saldoCOPSubEl = document.getElementById("modalSaldoCOPSub");
     var cardCOP = document.getElementById("cardCOP");
-    if (usuarioActualTipo === "empresa") {
-        saldoCOPEl.className = "text-2xl font-bold mt-1 text-teal-600";
-        saldoCOPEl.textContent = "—";
-        saldoCOPSubEl.textContent = "cuenta empresa";
-        cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-teal-50 border-teal-200";
-    } else if (precioTicket > 0) {
-        var cop = Math.abs(saldo) * precioTicket;
+    var precioActual = precioActualUsuario();
+    var esEmpresa = usuarioActualTipo === "empresa";
+    if (precioActual > 0) {
+        var cop = Math.abs(saldo) * precioActual;
         var copStr = "$" + cop.toLocaleString("es-CO");
         if (saldo < 0) {
             saldoCOPEl.className = "text-2xl font-bold mt-1 text-red-600";
             saldoCOPEl.textContent = copStr;
-            saldoCOPSubEl.textContent = "en deuda";
+            saldoCOPSubEl.textContent = esEmpresa ? "empresa en deuda" : "en deuda";
             cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-red-50 border-red-200";
         } else if (saldo > 0) {
-            saldoCOPEl.className = "text-2xl font-bold mt-1 text-green-600";
+            saldoCOPEl.className = "text-2xl font-bold mt-1 " + (esEmpresa ? "text-teal-600" : "text-green-600");
             saldoCOPEl.textContent = copStr;
-            saldoCOPSubEl.textContent = "a favor";
-            cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-green-50 border-green-200";
+            saldoCOPSubEl.textContent = esEmpresa ? "empresa a favor" : "a favor";
+            cardCOP.className = "p-4 rounded-xl border text-center transition-colors " + (esEmpresa ? "bg-teal-50 border-teal-200" : "bg-green-50 border-green-200");
         } else {
             saldoCOPEl.className = "text-2xl font-bold mt-1 text-gray-400";
             saldoCOPEl.textContent = "$0";
@@ -610,11 +612,13 @@ function abrirModalPerfil(id, nombre, saldo, cobertura, activo, email, tipo) {
         cardCOP.className = "p-4 rounded-xl border text-center transition-colors bg-gray-50 border-gray-100";
     }
 
-    // Badge precio por tiquete
+    // Badge precio por tiquete (precio_empresa si es empresa)
     var precioBadge = document.getElementById("precioTicketBadge");
-    if (precioTicket > 0) {
-        precioBadge.textContent = "$" + precioTicket.toLocaleString("es-CO") + " / tiquete";
-        precioBadge.classList.remove("hidden");
+    if (precioActual > 0) {
+        precioBadge.textContent = "$" + precioActual.toLocaleString("es-CO") + " / tiquete" + (esEmpresa ? " (empresa)" : "");
+        precioBadge.className = esEmpresa
+            ? "text-[11px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md font-medium border border-teal-100"
+            : "text-[11px] text-brand-600 bg-brand-50 px-2 py-0.5 rounded-md font-medium border border-brand-100";
     } else {
         precioBadge.classList.add("hidden");
     }
@@ -636,8 +640,9 @@ function cerrarModal() {
 function sincronizarDesdeMonto() {
     var monto = parseFloat(document.getElementById("inputMontoPagado").value) || 0;
     var inputTickets = document.getElementById("inputTickets");
-    if (precioTicket > 0 && monto > 0 && monto % precioTicket === 0) {
-        inputTickets.value = monto / precioTicket;
+    var precio = precioActualUsuario();
+    if (precio > 0 && monto > 0 && monto % precio === 0) {
+        inputTickets.value = monto / precio;
     } else {
         inputTickets.value = "";
     }
@@ -651,8 +656,9 @@ function sincronizarDesdeTickets() {
         document.getElementById("inputTickets").value = tickets || "";
     }
     var inputMonto = document.getElementById("inputMontoPagado");
-    if (precioTicket > 0 && tickets > 0) {
-        inputMonto.value = tickets * precioTicket;
+    var precio = precioActualUsuario();
+    if (precio > 0 && tickets > 0) {
+        inputMonto.value = tickets * precio;
     } else {
         inputMonto.value = "";
     }
@@ -685,7 +691,8 @@ async function ajustarTickets(accion) {
 
     var cantidad = accion === "quitar" ? -tickets : tickets;
     var body = { cantidad: cantidad };
-    if (precioTicket > 0) body.precio_snapshot = precioTicket;
+    var precio = precioActualUsuario();
+    if (precio > 0) body.precio_snapshot = precio;
     if (monto > 0 && accion === "agregar") body.monto_pagado = monto;
 
     var res = await fetchConReintentos(API_URL + "/usuarios/" + usuarioActualId + "/tickets", {
@@ -1152,13 +1159,16 @@ function cerrarFinanzas() {
 function _renderTarjetasCaja(caja) {
     if (!caja) return;
     var fmt = function(n) { return "$" + Math.round(n || 0).toLocaleString("es-CO"); };
-    var tiq = function(n) { return (n || 0) + " tiquete" + ((n || 0) === 1 ? "" : "s"); };
+    var tiq = function(n) { return (n || 0) + " tiq."; };
+    var tiqL = function(n) { return (n || 0) + " tiquete" + ((n || 0) === 1 ? "" : "s"); };
     document.getElementById("fzCajaPagadoCOP").textContent = fmt(caja.pagado.cop);
-    document.getElementById("fzCajaPagadoTiq").textContent = tiq(caja.pagado.tiquetes);
+    document.getElementById("fzCajaPagadoTiq").textContent = tiqL(caja.pagado.tiquetes);
     document.getElementById("fzCajaDeudaCOP").textContent = fmt(caja.deuda.cop);
-    document.getElementById("fzCajaDeudaTiq").textContent = tiq(caja.deuda.tiquetes);
-    document.getElementById("fzCajaEmpresaCOP").textContent = fmt(caja.empresa.cop);
-    document.getElementById("fzCajaEmpresaTiq").textContent = tiq(caja.empresa.tiquetes);
+    document.getElementById("fzCajaDeudaTiq").textContent = tiqL(caja.deuda.tiquetes);
+    document.getElementById("fzCajaEmpresaPagadoCOP").textContent = fmt(caja.empresa.pagado.cop);
+    document.getElementById("fzCajaEmpresaPagadoTiq").textContent = tiq(caja.empresa.pagado.tiquetes);
+    document.getElementById("fzCajaEmpresaDeudaCOP").textContent = fmt(caja.empresa.deuda.cop);
+    document.getElementById("fzCajaEmpresaDeudaTiq").textContent = tiq(caja.empresa.deuda.tiquetes);
 }
 
 function _renderPeriodoLabel(q) {
@@ -1281,11 +1291,10 @@ function renderTablaQuincenas(quincenas, offset) {
     });
     r2 += '</tr>';
 
-    // Filas de datos
+    // Filas simples: Pagados, Fiados
     var rowDefs = [
         { label: "Pagados", key: "pagados", lc: "text-green-700", vc: "text-green-700", sc: "text-green-500" },
         { label: "Fiados",  key: "fiados",  lc: "text-red-600",   vc: "text-red-600",   sc: "text-red-400"   },
-        { label: "Empresa", key: "empresa", lc: "text-teal-700",  vc: "text-teal-700",  sc: "text-teal-500"  },
     ];
     var dataRows = "";
     rowDefs.forEach(function(rd) {
@@ -1301,12 +1310,33 @@ function renderTablaQuincenas(quincenas, offset) {
         dataRows += '</tr>';
     });
 
-    // Fila Total (pagados + fiados + empresa)
+    // Fila Empresa: dos valores por celda (pagados teal · fiados rojo)
+    dataRows += '<tr class="border-b border-gray-50">';
+    dataRows += '<td class="py-2 px-2 text-[11px] font-bold text-teal-700 whitespace-nowrap">Empresa</td>';
+    quincenas.forEach(function(q) {
+        var e = q.empresa || {pagados:0, fiados:0, cop_pagados:0, cop_fiados:0};
+        dataRows += '<td class="py-1.5 text-center">'
+            + '<div class="flex items-center justify-center gap-1 text-base font-bold leading-tight">'
+            +   '<span class="text-teal-700">' + (e.pagados || 0) + '</span>'
+            +   '<span class="text-gray-300 text-xs">·</span>'
+            +   '<span class="text-red-600">' + (e.fiados || 0) + '</span>'
+            + '</div>'
+            + '<div class="flex items-center justify-center gap-1 text-[10px] leading-tight mt-0.5">'
+            +   '<span class="text-teal-500">' + fmt(e.cop_pagados) + '</span>'
+            +   '<span class="text-gray-300">·</span>'
+            +   '<span class="text-red-400">' + fmt(e.cop_fiados) + '</span>'
+            + '</div>'
+            + '</td>';
+    });
+    dataRows += '</tr>';
+
+    // Fila Total: incluye empresa pagados+fiados sumados a su precio
     var totalRow = '<tr class="border-b-2 border-indigo-100">';
     totalRow += '<td class="py-2 px-2 text-[11px] font-bold text-indigo-700 whitespace-nowrap">Total</td>';
-    quincenas.forEach(function(q, i) {
-        var tiq = q.pagados.tiquetes + q.fiados.tiquetes + q.empresa.tiquetes;
-        var cop = q.pagados.cop + q.fiados.cop + q.empresa.cop;
+    quincenas.forEach(function(q) {
+        var e = q.empresa || {pagados:0, fiados:0, cop_pagados:0, cop_fiados:0};
+        var tiq = q.pagados.tiquetes + q.fiados.tiquetes + (e.pagados || 0) + (e.fiados || 0);
+        var cop = q.pagados.cop + q.fiados.cop + (e.cop_pagados || 0) + (e.cop_fiados || 0);
         totalRow += '<td class="py-1.5 text-center">'
             + '<span class="block text-base font-bold text-indigo-700">' + tiq + '</span>'
             + '<span class="block text-xs text-indigo-500">' + fmt(cop) + '</span>'
