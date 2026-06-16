@@ -400,7 +400,7 @@ function renderizarCalendario(data) {
             ? "border-l-2 border-r-2 border-t-2 border-brand-500"
             : "border-l border-gray-100";
 
-        htmlHead += '<th class="p-1 text-center min-w-[44px] ' + bordes + ' cursor-pointer select-none ' + bg + '"'
+        htmlHead += '<th class="p-1.5 text-center min-w-[70px] ' + bordes + ' cursor-pointer select-none ' + bg + '"'
             + ' onclick="toggleDiaGlobal(\'' + fecha + '\')"'
             + ' title="Click para marcar/desmarcar festivo">'
             + '<div class="capitalize text-[11px] font-medium ' + text + '">' + nombreDiaCorto(fecha) + '</div>'
@@ -469,7 +469,7 @@ function renderizarCalendario(data) {
             }
 
             var titleText = dia.fecha + (esInactivo ? ' - Inactivo' : esEsporadico ? ' - Click para registrar/quitar asistencia' : ' - ' + dia.estado);
-            htmlBody += '<td class="p-0.5 min-w-[44px] ' + bordesCelda + ' ' + todayBg + '">'
+            htmlBody += '<td class="p-1 min-w-[70px] ' + bordesCelda + ' ' + todayBg + '">'
                 + '<div' + (esInactivo ? '' : ' onclick="toggleExcepcion(' + user.id + ',\'' + dia.fecha + '\',event)"')
                 + ' class="h-9 w-full rounded-lg ' + colorClass + (esInactivo ? '' : ' cursor-pointer hover:scale-105 hover:shadow-sm') + ' transition-all flex justify-center items-center text-xs font-medium ' + textColor + '"'
                 + ' title="' + titleText + '">'
