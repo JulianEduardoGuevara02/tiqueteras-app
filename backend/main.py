@@ -70,6 +70,10 @@ def _cors_headers(request: Request) -> dict:
         return {"Access-Control-Allow-Origin": origin or "*"}
     return {}
 
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     headers = _cors_headers(request)
