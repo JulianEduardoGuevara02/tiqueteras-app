@@ -22,8 +22,10 @@
         .toast-exit { animation: slideOut .3s ease-in forwards; }
         @keyframes slideIn { from { transform: translateX(100%); opacity:0 } to { transform: translateX(0); opacity:1 } }
         @keyframes slideOut { from { transform: translateX(0); opacity:1 } to { transform: translateX(100%); opacity:0 } }
-        .calendar-scroll::-webkit-scrollbar { height: 6px; }
-        .calendar-scroll::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 3px; }
+        .calendar-scroll::-webkit-scrollbar { height: 8px; width: 8px; }
+        .calendar-scroll::-webkit-scrollbar-thumb { background: #c7d2fe; border-radius: 4px; }
+        .calendar-scroll::-webkit-scrollbar-thumb:hover { background: #a5b4fc; }
+        .calendar-scroll::-webkit-scrollbar-track { background: #f3f4f6; }
         .tab-active { color: #4f46e5; border-color: #4f46e5; }
         .tab-inactive { color: #9ca3af; border-color: transparent; }
         @keyframes pulse-border { 0%,100% { opacity:.4 } 50% { opacity:1 } }
@@ -184,7 +186,7 @@
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                 </button>
             </div>
-            <div class="overflow-x-auto calendar-scroll">
+            <div class="overflow-auto calendar-scroll max-h-[70vh]">
                 <table class="w-full text-sm text-left">
                     <thead id="calendarHead" class="text-[11px] text-gray-500 bg-gray-50 uppercase tracking-wider border-b"></thead>
                     <tbody id="calendarBody"></tbody>

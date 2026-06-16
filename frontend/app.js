@@ -387,7 +387,7 @@ function renderizarCalendario(data) {
     var tbody = document.getElementById("calendarBody");
     var hoyStr = new Date().toISOString().split("T")[0];
 
-    var htmlHead = '<tr><th class="p-3 w-44 sticky left-0 bg-gray-50 z-20 border-r border-gray-200">Persona</th>';
+    var htmlHead = '<tr><th class="p-3 w-44 sticky left-0 top-0 bg-gray-50 z-30 border-r border-gray-200">Persona</th>';
     data.fechas_columnas.forEach(function(fecha) {
         var dateObj = new Date(fecha + "T00:00:00");
         var isSunday = dateObj.getDay() === 0;
@@ -400,7 +400,7 @@ function renderizarCalendario(data) {
             ? "border-l-2 border-r-2 border-t-2 border-brand-500"
             : "border-l border-gray-100";
 
-        htmlHead += '<th class="p-1.5 text-center min-w-[70px] ' + bordes + ' cursor-pointer select-none ' + bg + '"'
+        htmlHead += '<th class="p-1.5 text-center min-w-[70px] sticky top-0 z-20 ' + bordes + ' cursor-pointer select-none ' + bg + '"'
             + ' onclick="toggleDiaGlobal(\'' + fecha + '\')"'
             + ' title="Click para marcar/desmarcar festivo">'
             + '<div class="capitalize text-[11px] font-medium ' + text + '">' + nombreDiaCorto(fecha) + '</div>'

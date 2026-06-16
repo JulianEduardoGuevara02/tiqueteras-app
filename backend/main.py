@@ -496,8 +496,8 @@ def obtener_dashboard(
     usuarios = query_usuarios.all()
 
     hoy = date.today()
-    fecha_inicio = hoy - timedelta(days=17) + timedelta(days=offset_dias)
-    dias_a_mostrar = 32
+    fecha_inicio = hoy - timedelta(days=15) + timedelta(days=offset_dias)
+    dias_a_mostrar = 30
 
     query_globales = db.query(DiaGlobal)
     if sid is not None:
