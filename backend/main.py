@@ -70,7 +70,7 @@ def _cors_headers(request: Request) -> dict:
         return {"Access-Control-Allow-Origin": origin or "*"}
     return {}
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health():
     return {"ok": True}
 
