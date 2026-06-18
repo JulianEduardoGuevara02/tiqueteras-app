@@ -50,6 +50,7 @@ class Usuario(Base):
     tipo = Column(String, default="recurrente")  # recurrente | esporadico | empresa
     saldos = relationship("Saldo", back_populates="usuario")
     excepciones = relationship("Excepcion", back_populates="usuario")
+    periodos_inactividad = relationship("PeriodoInactividad", back_populates="usuario")
 
 class Saldo(Base):
     __tablename__ = "saldos"
@@ -94,6 +95,16 @@ class ConfiguracionSede(Base):
     sede_id = Column(Integer, ForeignKey("sedes.id"), nullable=True, unique=True)
     precio_ticket = Column(Float, default=0.0)
     precio_empresa = Column(Float, default=0.0)
+
+class PeriodoInactividad(Base):
+    """Períodos en los que un usuario estuvo inactivo. fecha_fin NULL = abierto (inactivo actualmente).
+    Intervalo semi-abierto [fecha_inicio, fecha_fin): el día de reactivación ya cuenta como activo."""
+    __tablename__ = "periodos_inactividad"
+    id = Column(Integer, primary_key=True, index=True)
+    usuario_id = Column(Integer, ForeignKey("usuarios.id"), index=True)
+    fecha_inicio = Column(Date, nullable=False)
+    fecha_fin = Column(Date, nullable=True)
+    usuario = relationship("Usuario", back_populates="periodos_inactividad")
 
 class ComprasMercado(Base):
     """Registro de compras de mercado/insumos. El dinero sale del fondo de pagos."""
@@ -222,6 +233,61 @@ def migrar_saldo_precio():
             except Exception:
                 conn.rollback()
 
+def migrar_periodos_inactividad():
+    """Para cada usuario actualmente inactivo (activo=0), crea un período abierto si no existe.
+    Intenta recuperar la fecha de desactivación del audit log (acción 'Desactivar persona'
+    con detalle = nombre del usuario, en la misma sede). Si no hay registro, usa hoy."""
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("SELECT 1 FROM periodos_inactividad LIMIT 1"))
+        except Exception:
+            conn.rollback()
+            return
+        try:
+            inactivos = conn.execute(text(
+                "SELECT id, nombre, sede_id FROM usuarios WHERE activo = 0"
+            )).fetchall()
+        except Exception:
+            conn.rollback()
+            return
+        for row in inactivos:
+            u_id, nombre, sede_id = row[0], row[1], row[2]
+            try:
+                ya = conn.execute(text(
+                    "SELECT 1 FROM periodos_inactividad WHERE usuario_id = :uid AND fecha_fin IS NULL LIMIT 1"
+                ), {"uid": u_id}).first()
+                if ya:
+                    continue
+                if sede_id is None:
+                    log_row = conn.execute(text(
+                        "SELECT fecha FROM log_auditoria "
+                        "WHERE accion = 'Desactivar persona' AND detalle = :nombre AND sede_id IS NULL "
+                        "ORDER BY fecha DESC LIMIT 1"
+                    ), {"nombre": nombre}).first()
+                else:
+                    log_row = conn.execute(text(
+                        "SELECT fecha FROM log_auditoria "
+                        "WHERE accion = 'Desactivar persona' AND detalle = :nombre AND sede_id = :sede_id "
+                        "ORDER BY fecha DESC LIMIT 1"
+                    ), {"nombre": nombre, "sede_id": sede_id}).first()
+                if log_row and log_row[0] is not None:
+                    v = log_row[0]
+                    fecha_inicio = v.date() if hasattr(v, "date") else v
+                else:
+                    fecha_inicio = datetime.date.today()
+                conn.execute(text(
+                    "INSERT INTO periodos_inactividad (usuario_id, fecha_inicio) VALUES (:uid, :f)"
+                ), {"uid": u_id, "f": fecha_inicio})
+            except Exception:
+                conn.rollback()
+                continue
+        try:
+            conn.commit()
+            if inactivos:
+                logger.info("Migracion: backfill de periodos_inactividad ejecutado")
+        except Exception:
+            conn.rollback()
+
 def migrar_precio_empresa():
     with engine.connect() as conn:
         try:
@@ -243,6 +309,7 @@ try:
     migrar_tipo_usuario()
     migrar_saldo_precio()
     migrar_precio_empresa()
+    migrar_periodos_inactividad()
     bootstrap_superadmin()
 except Exception as e:
     logger.warning(f"Migracion/bootstrap: {e} (ejecutar SQL manualmente si falla)")

@@ -13,7 +13,7 @@ from typing import Optional
 import io
 import openpyxl
 import httpx
-from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria, Sede, AdminSede, ConfiguracionSede, ComprasMercado
+from models import SessionLocal, Usuario, Saldo, Excepcion, DiaGlobal, LogAuditoria, Sede, AdminSede, ConfiguracionSede, ComprasMercado, PeriodoInactividad
 from auth import verificar_token
 
 logger = logging.getLogger(__name__)
@@ -174,6 +174,14 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
     excepciones_db = usuario.excepciones
     excepciones = {e.fecha: e.tipo_excepcion for e in excepciones_db}
 
+    periodos_inactivos = getattr(usuario, "periodos_inactividad", []) or []
+
+    def _esta_inactivo(f):
+        for p in periodos_inactivos:
+            if p.fecha_inicio <= f and (p.fecha_fin is None or f < p.fecha_fin):
+                return True
+        return False
+
     fechas_relevantes = [date.today()]
     if saldos:
         fechas_relevantes.append(min(s.fecha_compra for s in saldos))
@@ -200,7 +208,10 @@ def calcular_proyeccion_usuario(usuario: Usuario, fecha_inicio_visual: date, dia
         come = False
         estado_base = ""
 
-        if es_empresa or es_esporadico:
+        if _esta_inactivo(fecha_iter):
+            # Usuario inactivo en esta fecha: no consume ni acumula deuda. Se ve gris.
+            estado_base = "sunday_blocked"
+        elif es_empresa or es_esporadico:
             # Cuentas empresa y esporadicas: comen solo cuando hay asistencia explícita
             if tipo_exc == "Asistencia":
                 come = True
@@ -417,6 +428,7 @@ def alertas_saldo_bajo(
     usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
         joinedload(Usuario.excepciones),
+        joinedload(Usuario.periodos_inactividad),
     ).filter(
         Usuario.activo == 1,
         Usuario.tipo == tipo,
@@ -487,7 +499,8 @@ def obtener_dashboard(
 
     query_usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
-        joinedload(Usuario.excepciones)
+        joinedload(Usuario.excepciones),
+        joinedload(Usuario.periodos_inactividad)
     )
     if not incluir_inactivos:
         query_usuarios = query_usuarios.filter(Usuario.activo == 1)
@@ -614,6 +627,7 @@ def eliminar_usuario(usuario_id: int, db: Session = Depends(get_db), auth_user: 
     sid = usuario.sede_id
     db.query(Saldo).filter(Saldo.usuario_id == usuario_id).delete()
     db.query(Excepcion).filter(Excepcion.usuario_id == usuario_id).delete()
+    db.query(PeriodoInactividad).filter(PeriodoInactividad.usuario_id == usuario_id).delete()
     db.delete(usuario)
     registrar_log(db, admin.email, "Eliminar persona", nombre, sid)
     db.commit()
@@ -626,8 +640,22 @@ def toggle_activo_usuario(usuario_id: int, db: Session = Depends(get_db), auth_u
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     verificar_acceso_usuario(admin, usuario)
-    usuario.activo = 0 if usuario.activo == 1 else 1
-    estado = "Activar" if usuario.activo == 1 else "Desactivar"
+    hoy = date.today()
+    if usuario.activo == 1:
+        abierto = db.query(PeriodoInactividad).filter_by(usuario_id=usuario.id, fecha_fin=None).first()
+        if not abierto:
+            db.add(PeriodoInactividad(usuario_id=usuario.id, fecha_inicio=hoy))
+        usuario.activo = 0
+        estado = "Desactivar"
+    else:
+        abierto = db.query(PeriodoInactividad).filter_by(usuario_id=usuario.id, fecha_fin=None).first()
+        if abierto:
+            if abierto.fecha_inicio >= hoy:
+                db.delete(abierto)
+            else:
+                abierto.fecha_fin = hoy
+        usuario.activo = 1
+        estado = "Activar"
     registrar_log(db, admin.email, f"{estado} persona", usuario.nombre, usuario.sede_id)
     db.commit()
     return {"message": f"Usuario {'activado' if usuario.activo == 1 else 'desactivado'}", "activo": usuario.activo}
@@ -686,7 +714,8 @@ def exportar_excel(fecha: str, sede_id: Optional[int] = Query(default=None), db:
 
     query_usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
-        joinedload(Usuario.excepciones)
+        joinedload(Usuario.excepciones),
+        joinedload(Usuario.periodos_inactividad)
     ).filter(Usuario.activo == 1)
     if sid is not None:
         query_usuarios = query_usuarios.filter(Usuario.sede_id == sid)
@@ -1007,7 +1036,8 @@ def resumen_quincenas(
 
     q_usuarios = db.query(Usuario).options(
         joinedload(Usuario.saldos),
-        joinedload(Usuario.excepciones)
+        joinedload(Usuario.excepciones),
+        joinedload(Usuario.periodos_inactividad)
     ).filter(Usuario.activo == 1)
     if sid is not None:
         q_usuarios = q_usuarios.filter(Usuario.sede_id == sid)
